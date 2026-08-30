@@ -21,15 +21,19 @@ export async function POST(
     const data =
       sendOtpSchema.parse(body);
 
-    await otpService.sendOtp(
+    const result = await otpService.sendOtp(
       data.phone,
-      "LOGIN"
+      "LOGIN",
+      data.channel ?? "whatsapp"
     );
 
     return NextResponse.json({
       success: true,
       message:
-        "OTP sent successfully.",
+        result.channelUsed === "whatsapp"
+          ? "OTP sent on WhatsApp."
+          : "OTP sent via SMS.",
+      channelUsed: result.channelUsed,
     });
   } catch (error) {
     console.error(error);

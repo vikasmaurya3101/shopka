@@ -1,8 +1,12 @@
-# Message Central (VerifyNow) — Phone OTP Without Firebase Billing
+# Message Central (VerifyNow) — SMS OTP Fallback
 
-Firebase Phone Auth needs the Blaze billing plan for real SMS. Until you're
-ready for that, `/login`'s phone flow uses **Message Central VerifyNow**
-instead — no DLT registration, no GST, and it comes with free credits.
+`/login` now tries **WhatsApp first** (see `WHATSAPP_SETUP.md`) and falls
+back to SMS automatically after 30 seconds, or immediately if WhatsApp
+isn't configured. This doc covers that SMS fallback, via **Message Central
+VerifyNow** — no DLT registration, no GST, and it comes with free credits.
+
+(Firebase Phone Auth needs the Blaze billing plan for real SMS, which is
+why this exists as an alternative — see the bottom of this file.)
 
 Firebase Phone Auth code is still in the project (`src/lib/firebase.ts`,
 `firebaseSendOtp` / `firebaseVerifyOtp` in `useAuth.ts`) — switching back

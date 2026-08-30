@@ -11,8 +11,9 @@ const AddPhoneDto = z.object({
 
 /**
  * Verifies an OTP and attaches the phone number to the CURRENTLY LOGGED IN
- * user — used by Google-signup accounts that don't have a phone yet.
- * Reuses the same OTP records /api/auth/send-otp creates (purpose LOGIN).
+ * user — for any account that doesn't have one yet (e.g. legacy accounts
+ * from the now-removed Google sign-in). Reuses the same OTP records
+ * /api/auth/send-otp creates (purpose LOGIN).
  */
 export async function POST(request: NextRequest) {
   const session = await getSession();

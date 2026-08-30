@@ -7,6 +7,10 @@ import { BaseOtpProvider } from "./otp.provider";
  * Adjust the request body below to match your provider's payload shape.
  */
 export class SmsProvider extends BaseOtpProvider {
+  isConfigured(): boolean {
+    return Boolean(process.env.SMS_API_URL && process.env.SMS_API_KEY);
+  }
+
   async send(phone: string, otp: string): Promise<void> {
     const apiUrl = process.env.SMS_API_URL;
     const apiKey = process.env.SMS_API_KEY;

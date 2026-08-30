@@ -20,7 +20,6 @@ export const PUBLIC_ROUTES = [
 ];
 
 export const PROTECTED_ROUTES = [
-  "/cart",
   "/checkout",
   "/orders",
   "/profile",

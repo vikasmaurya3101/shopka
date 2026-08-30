@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Mail, MessageCircle } from "lucide-react";
+import { getPublicSettings, buildWhatsAppLink } from "@/lib/settings";
 
 function IgIcon({ size = 15 }: { size?: number }) {
   return (
@@ -25,40 +26,25 @@ function YtIcon({ size = 15 }: { size?: number }) {
   );
 }
 
-const SOCIAL = [
-  {
-    label: "Instagram",
-    href: "https://www.instagram.com/shopka.in",
-    icon: <IgIcon size={20} />,
-    color: "hover:text-pink-400",
-  },
-  {
-    label: "Facebook",
-    href: "https://www.facebook.com/shopka.in",
-    icon: <FbIcon size={20} />,
-    color: "hover:text-blue-400",
-  },
-  {
-    label: "YouTube",
-    href: "https://www.youtube.com/@shopka.in",
-    icon: <YtIcon size={20} />,
-    color: "hover:text-red-400",
-  },
-  {
-    label: "WhatsApp",
-    href: "https://wa.me/919999999999",
-    icon: <MessageCircle size={20} />,
-    color: "hover:text-green-400",
-  },
-  {
-    label: "Email",
-    href: "mailto:support@shopka.in",
-    icon: <Mail size={20} />,
-    color: "hover:text-brand",
-  },
-];
+export default async function Footer() {
+  const settings = await getPublicSettings();
 
-export default function Footer() {
+  const email = settings.contact_email || "support@shopka.in";
+  const whatsappHref = buildWhatsAppLink(settings.whatsapp_number);
+  const instagramHref = settings.instagram_url || "https://www.instagram.com/shopka.in";
+  const facebookHref = settings.facebook_url || "https://www.facebook.com/shopka.in";
+  const youtubeHref = settings.youtube_url || "https://www.youtube.com/@shopka.in";
+
+  const social = [
+    { label: "Instagram", href: instagramHref, icon: <IgIcon size={20} />, color: "hover:text-pink-400" },
+    { label: "Facebook", href: facebookHref, icon: <FbIcon size={20} />, color: "hover:text-blue-400" },
+    { label: "YouTube", href: youtubeHref, icon: <YtIcon size={20} />, color: "hover:text-red-400" },
+    ...(whatsappHref
+      ? [{ label: "WhatsApp", href: whatsappHref, icon: <MessageCircle size={20} />, color: "hover:text-green-400" }]
+      : []),
+    { label: "Email", href: `mailto:${email}`, icon: <Mail size={20} />, color: "hover:text-brand" },
+  ];
+
   return (
     <footer className="mt-16 border-t bg-gray-950 text-gray-400">
       <div className="mx-auto grid max-w-7xl gap-10 px-6 py-12 sm:grid-cols-2 md:grid-cols-4">
@@ -71,7 +57,7 @@ export default function Footer() {
             delivered fast across India.
           </p>
           <div className="mt-5 flex items-center gap-4">
-            {SOCIAL.map(({ label, href, icon, color }) => (
+            {social.map(({ label, href, icon, color }) => (
               <a
                 key={label}
                 href={href}
@@ -107,6 +93,7 @@ export default function Footer() {
             <li><Link href="/help" className="transition hover:text-white">Help Centre</Link></li>
             <li><Link href="/returns" className="transition hover:text-white">Return Policy</Link></li>
             <li><Link href="/terms" className="transition hover:text-white">Terms &amp; Conditions</Link></li>
+            <li><Link href="/privacy" className="transition hover:text-white">Privacy Policy</Link></li>
             <li><Link href="/orders" className="transition hover:text-white">Track My Order</Link></li>
           </ul>
         </div>
@@ -119,27 +106,29 @@ export default function Footer() {
           <ul className="space-y-3 text-sm">
             <li>
               <a
-                href="mailto:support@shopka.in"
+                href={`mailto:${email}`}
                 className="flex items-center gap-2 transition hover:text-white"
               >
                 <Mail size={15} />
-                support@shopka.in
+                {email}
               </a>
             </li>
+            {whatsappHref && (
+              <li>
+                <a
+                  href={whatsappHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 transition hover:text-green-400"
+                >
+                  <MessageCircle size={15} />
+                  WhatsApp Support
+                </a>
+              </li>
+            )}
             <li>
               <a
-                href="https://wa.me/919999999999"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 transition hover:text-green-400"
-              >
-                <MessageCircle size={15} />
-                WhatsApp Support
-              </a>
-            </li>
-            <li>
-              <a
-                href="https://www.instagram.com/shopka.in"
+                href={instagramHref}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 transition hover:text-pink-400"

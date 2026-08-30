@@ -1,46 +1,63 @@
 import { BaseOtpProvider } from "./otp.provider";
 
 /**
- * Generic WhatsApp Business API OTP provider.
- * Configure WHATSAPP_API_URL / WHATSAPP_API_KEY in .env for your vendor
- * (e.g. Meta Cloud API, Gupshup, Twilio WhatsApp, etc). Adjust the
- * request body below to match your provider's exact payload shape.
+ * WhatsApp OTP delivery via AiSensy (https://aisensy.com), a WhatsApp
+ * Business Solution Provider built on Meta's Cloud API.
+ *
+ * Setup (see WHATSAPP_SETUP.md):
+ * 1. Create an AiSensy account and get your WhatsApp Business number live.
+ * 2. Create + get Meta approval for an "Authentication" category template
+ *    with a single body variable for the code (e.g. "{{1}} is your Shopka
+ *    verification code.").
+ * 3. In AiSensy: Campaigns > +Launch > API Campaign, pick that template,
+ *    name the campaign, and set it Live.
+ * 4. Put your API key + that campaign name in .env:
+ *      WHATSAPP_API_KEY=<AiSensy API key from Manage > API Key>
+ *      WHATSAPP_CAMPAIGN_NAME=<the API campaign name from step 3>
+ *
+ * Docs: https://wiki.aisensy.com/en/articles/11501889-api-reference-docs
  */
-export class WhatsAppProvider extends BaseOtpProvider {
-  async send(phone: string, otp: string): Promise<void> {
-    const apiUrl = process.env.WHATSAPP_API_URL;
-    const apiKey = process.env.WHATSAPP_API_KEY;
+const DEFAULT_AISENSY_URL = "https://backend.aisensy.com/campaign/t1/api/v2";
 
-    if (!apiUrl || !apiKey) {
-      throw new Error("WhatsApp provider is not configured.");
+export class WhatsAppProvider extends BaseOtpProvider {
+  isConfigured(): boolean {
+    return Boolean(process.env.WHATSAPP_API_KEY && process.env.WHATSAPP_CAMPAIGN_NAME);
+  }
+
+  async send(phone: string, otp: string): Promise<void> {
+    const apiKey = process.env.WHATSAPP_API_KEY;
+    const campaignName = process.env.WHATSAPP_CAMPAIGN_NAME;
+    const apiUrl = process.env.WHATSAPP_API_URL || DEFAULT_AISENSY_URL;
+
+    if (!apiKey || !campaignName) {
+      throw new Error(
+        "WhatsApp provider is not configured. Set WHATSAPP_API_KEY and " +
+          "WHATSAPP_CAMPAIGN_NAME — see WHATSAPP_SETUP.md."
+      );
     }
+
+    const digits = phone.replace(/\D/g, "");
+    const destination = digits.startsWith("91") ? `+${digits}` : `+91${digits}`;
 
     const response = await fetch(apiUrl, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        to: phone,
-        type: "template",
-        template: {
-          name: "otp_verification",
-          language: { code: "en" },
-          components: [
-            {
-              type: "body",
-              parameters: [{ type: "text", text: otp }],
-            },
-          ],
-        },
+        apiKey,
+        campaignName,
+        destination,
+        userName: destination,
+        templateParams: [otp],
       }),
     });
 
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => "");
+    const json = await response.json().catch(() => null);
+
+    if (!response.ok || json?.success === false) {
       throw new Error(
-        `WhatsApp OTP send failed (${response.status}): ${errorText}`
+        `WhatsApp OTP send failed (${response.status}): ${
+          json?.message ?? (await response.text().catch(() => "Unknown error"))
+        }`
       );
     }
   }

@@ -1,4 +1,6 @@
+import { cache } from "react";
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import Image from "next/image";
 import { prisma } from "@/lib/prisma";
 import ProductListClient from "@/components/product/ProductListClient";
@@ -7,10 +9,39 @@ interface CategoryPageProps {
   params: Promise<{ slug: string }>;
 }
 
+// Deduped per-request so generateMetadata() and the page body share one query.
+const getCategory = cache(async (slug: string) => {
+  return prisma.category.findUnique({ where: { slug } });
+});
+
+export async function generateMetadata({
+  params,
+}: CategoryPageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const category = await getCategory(slug);
+
+  if (!category) return { title: "Category Not Found" };
+
+  const description =
+    category.description ||
+    `Shop the best deals on ${category.name} at Shopka — quality products, unbeatable prices, fast delivery across India.`;
+
+  return {
+    title: category.name,
+    description,
+    alternates: { canonical: `/category/${category.slug}` },
+    openGraph: {
+      title: `${category.name} | Shopka`,
+      description,
+      images: category.image ? [{ url: category.image, width: 1200, height: 630 }] : undefined,
+    },
+  };
+}
+
 export default async function CategoryPage({ params }: CategoryPageProps) {
   const { slug } = await params;
 
-  const category = await prisma.category.findUnique({ where: { slug } });
+  const category = await getCategory(slug);
 
   if (!category) {
     notFound();

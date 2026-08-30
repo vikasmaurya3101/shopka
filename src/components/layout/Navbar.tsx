@@ -1,13 +1,15 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ChevronRight,
   Heart,
   HelpCircle,
+  Loader2,
   LogOut,
   Mail,
   MapPin,
@@ -15,6 +17,7 @@ import {
   MoreVertical,
   Package,
   Search,
+  SearchX,
   ShoppingCart,
   User,
   X,
@@ -22,7 +25,17 @@ import {
 import { useSession } from "@/providers/SessionProvider";
 import { useCart } from "@/hooks/useCart";
 import { useAuth } from "@/hooks/useAuth";
+import { useDebounce } from "@/hooks/useDebounce";
+import { formatCurrency } from "@/lib/utils/currency";
+import { ProductSearchResult } from "@/types/product";
 import Logo from "@/components/shared/Logo";
+
+const MAX_SUGGESTIONS = 6;
+
+interface SearchSuggestResponse {
+  success: boolean;
+  data?: ProductSearchResult[];
+}
 
 export default function Navbar({ logoUrl = "/brand/logo-128.png" }: { logoUrl?: string }) {
   const router = useRouter();
@@ -33,6 +46,14 @@ export default function Navbar({ logoUrl = "/brand/logo-128.png" }: { logoUrl?: 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [quickMenuOpen, setQuickMenuOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [suggestions, setSuggestions] = useState<ProductSearchResult[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [activeField, setActiveField] = useState<"desktop" | "mobile" | null>(null);
+
+  const debouncedQuery = useDebounce(query, 300);
+  const requestIdRef = useRef(0);
+  const desktopFormRef = useRef<HTMLFormElement>(null);
+  const mobileFormRef = useRef<HTMLFormElement>(null);
 
   const QUICK_LINKS = [
     { label: "Saved Addresses", href: "/profile/addresses", icon: MapPin },
@@ -42,10 +63,69 @@ export default function Navbar({ logoUrl = "/brand/logo-128.png" }: { logoUrl?: 
     { label: "Help & Support", href: "/help", icon: HelpCircle },
   ];
 
+  // True the instant the user types, until the debounced value below
+  // catches up — so the dropdown can show a "searching" state right away
+  // instead of popping from nothing straight to "No results".
+  const isAwaitingDebounce = query.trim().length > 0 && query !== debouncedQuery;
+
+  useEffect(() => {
+    const trimmed = debouncedQuery.trim();
+
+    if (!trimmed) {
+      setSuggestions([]);
+      setSuggestionsLoading(false);
+      return;
+    }
+
+    const requestId = ++requestIdRef.current;
+
+    fetch(`/api/products/search?q=${encodeURIComponent(trimmed)}`)
+      .then((res) => res.json())
+      .then((json: SearchSuggestResponse) => {
+        if (requestId !== requestIdRef.current) return;
+        setSuggestions(json.success ? (json.data ?? []).slice(0, MAX_SUGGESTIONS) : []);
+      })
+      .catch(() => {
+        if (requestId === requestIdRef.current) setSuggestions([]);
+      })
+      .finally(() => {
+        if (requestId === requestIdRef.current) setSuggestionsLoading(false);
+      });
+  }, [debouncedQuery]);
+
+  // Escape and click-outside both close whichever dropdown is currently open.
+  useEffect(() => {
+    if (!activeField) return;
+
+    function handlePointerDown(e: MouseEvent) {
+      const formRef = activeField === "desktop" ? desktopFormRef : mobileFormRef;
+      if (formRef.current && !formRef.current.contains(e.target as Node)) {
+        setActiveField(null);
+      }
+    }
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setActiveField(null);
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [activeField]);
+
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
+    setActiveField(null);
     const trimmed = query.trim();
     router.push(trimmed ? `/search?q=${encodeURIComponent(trimmed)}` : "/search");
+  }
+
+  function closeSuggestions() {
+    setActiveField(null);
   }
 
   return (
@@ -55,6 +135,7 @@ export default function Navbar({ logoUrl = "/brand/logo-128.png" }: { logoUrl?: 
           <Logo size={38} logoUrl={logoUrl} />
 
           <form
+            ref={desktopFormRef}
             onSubmit={handleSearch}
             className="hidden flex-1 px-10 lg:block"
           >
@@ -66,7 +147,9 @@ export default function Navbar({ logoUrl = "/brand/logo-128.png" }: { logoUrl?: 
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
+                onFocus={() => setActiveField("desktop")}
                 placeholder="Search for products..."
+                autoComplete="off"
                 className="w-full rounded-full border border-gray-200 bg-gray-50 py-2.5 pl-11 pr-28 outline-none transition focus:border-brand focus:bg-white"
               />
               <button
@@ -75,6 +158,17 @@ export default function Navbar({ logoUrl = "/brand/logo-128.png" }: { logoUrl?: 
               >
                 Search
               </button>
+
+              <AnimatePresence>
+                {activeField === "desktop" && query.trim().length > 0 && (
+                  <SearchSuggestions
+                    loading={isAwaitingDebounce || suggestionsLoading}
+                    results={suggestions}
+                    query={query}
+                    onSelect={closeSuggestions}
+                  />
+                )}
+              </AnimatePresence>
             </div>
           </form>
 
@@ -174,13 +268,19 @@ export default function Navbar({ logoUrl = "/brand/logo-128.png" }: { logoUrl?: 
         </div>
 
         {/* Persistent search row for mobile/tablet — the form above is desktop-only */}
-        <form onSubmit={handleSearch} className="border-t px-4 py-2.5 lg:hidden">
+        <form
+          ref={mobileFormRef}
+          onSubmit={handleSearch}
+          className="border-t px-4 py-2.5 lg:hidden"
+        >
           <div className="relative flex items-center">
             <Search size={18} className="absolute left-3.5 text-gray-400" />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              onFocus={() => setActiveField("mobile")}
               placeholder="Search for products..."
+              autoComplete="off"
               className="w-full rounded-full border border-gray-200 bg-gray-50 py-2 pl-10 pr-16 text-sm outline-none transition focus:border-brand focus:bg-white"
             />
             <button
@@ -189,6 +289,17 @@ export default function Navbar({ logoUrl = "/brand/logo-128.png" }: { logoUrl?: 
             >
               Search
             </button>
+
+            <AnimatePresence>
+              {activeField === "mobile" && query.trim().length > 0 && (
+                <SearchSuggestions
+                  loading={isAwaitingDebounce || suggestionsLoading}
+                  results={suggestions}
+                  query={query}
+                  onSelect={closeSuggestions}
+                />
+              )}
+            </AnimatePresence>
           </div>
         </form>
       </header>
@@ -295,5 +406,73 @@ export default function Navbar({ logoUrl = "/brand/logo-128.png" }: { logoUrl?: 
         )}
       </AnimatePresence>
     </>
+  );
+}
+
+interface SearchSuggestionsProps {
+  loading: boolean;
+  results: ProductSearchResult[];
+  query: string;
+  onSelect: () => void;
+}
+
+/**
+ * Autocomplete dropdown shared by the desktop and mobile search forms.
+ * Anchored by the caller (each form wraps it in a `relative` container).
+ */
+function SearchSuggestions({ loading, results, query, onSelect }: SearchSuggestionsProps) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -6 }}
+      transition={{ duration: 0.15 }}
+      className="absolute left-0 right-0 top-full z-50 mt-2 max-h-96 overflow-y-auto rounded-2xl border border-gray-100 bg-white py-2 text-left shadow-xl"
+    >
+      {loading ? (
+        <div className="flex items-center justify-center gap-2 px-4 py-6 text-sm text-gray-400">
+          <Loader2 size={16} className="animate-spin" />
+          Searching...
+        </div>
+      ) : results.length === 0 ? (
+        <div className="flex flex-col items-center gap-1.5 px-4 py-6 text-center text-sm text-gray-400">
+          <SearchX size={20} className="text-gray-300" />
+          No products found for “{query.trim()}”
+        </div>
+      ) : (
+        results.map((product) => {
+          const thumbnail = product.images[0]?.url ?? "/placeholder-product.png";
+
+          return (
+            <Link
+              key={product.id}
+              href={`/product/${product.slug}`}
+              onClick={onSelect}
+              prefetch={false}
+              className="tap-shrink flex items-center gap-3 px-4 py-2 transition hover:bg-brand-50"
+            >
+              <span className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-gray-50">
+                <Image
+                  src={thumbnail}
+                  alt={product.name}
+                  fill
+                  sizes="44px"
+                  className="object-contain p-1"
+                />
+              </span>
+
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium text-gray-800">
+                  {product.name}
+                </span>
+                <span className="block text-xs font-semibold text-brand">
+                  {formatCurrency(product.sellingPrice)}
+                </span>
+              </span>
+            </Link>
+          );
+        })
+      )}
+    </motion.div>
   );
 }

@@ -1,6 +1,7 @@
+import type { Metadata } from "next";
 import { Heart, ShieldCheck, Truck } from "lucide-react";
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "About Us | Shopka",
 };
 

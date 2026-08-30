@@ -14,7 +14,7 @@ model User {
   phoneVerified    Boolean           @default(false)
   email            String?           @unique
   emailVerified    Boolean           @default(false)
-  googleId         String?           @unique
+  googleId         String?           @unique // Legacy: Google sign-in was removed; kept so any previously-linked accounts aren't orphaned.
   firstName        String?
   lastName         String?
   profileImage     String?
@@ -43,6 +43,7 @@ model OtpVerification {
   phone      String
   purpose    OtpPurpose
   channel    OtpChannel
+  provider   String     @default("mock")
   isVerified Boolean    @default(false)
   attempts   Int        @default(0)
   expiresAt  DateTime

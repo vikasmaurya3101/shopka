@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
+import Link from "next/link";
 import { Mail, MapPin, MessageCircle } from "lucide-react";
+import { getPublicSettings, buildWhatsAppLink } from "@/lib/settings";
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "Contact Us | Shopka",
   description: "Reach out to Shopka via email, WhatsApp, or social media. We reply within 24 hours.",
 };
@@ -39,25 +42,35 @@ type Channel = {
   hoverBorder: string;
 };
 
-const CHANNELS: Channel[] = [
-  {
-    icon: <Mail size={20} />,
-    title: "Email us",
-    sub: "support@shopka.in",
-    href: "mailto:support@shopka.in",
-    iconBg: "bg-brand-50",
-    iconColor: "text-brand",
-    hoverBorder: "hover:border-brand",
-  },
-  {
-    icon: <MessageCircle size={20} />,
-    title: "WhatsApp",
-    sub: "Chat with us on WhatsApp",
-    href: "https://wa.me/919999999999",
-    iconBg: "bg-green-50",
-    iconColor: "text-green-600",
-    hoverBorder: "hover:border-green-400",
-  },
+function buildChannels(email: string, whatsappHref: string | null): Channel[] {
+  const channels: Channel[] = [
+    {
+      icon: <Mail size={20} />,
+      title: "Email us",
+      sub: email,
+      href: `mailto:${email}`,
+      iconBg: "bg-brand-50",
+      iconColor: "text-brand",
+      hoverBorder: "hover:border-brand",
+    },
+  ];
+
+  if (whatsappHref) {
+    channels.push({
+      icon: <MessageCircle size={20} />,
+      title: "WhatsApp",
+      sub: "Chat with us on WhatsApp",
+      href: whatsappHref,
+      iconBg: "bg-green-50",
+      iconColor: "text-green-600",
+      hoverBorder: "hover:border-green-400",
+    });
+  }
+
+  return channels;
+}
+
+const STATIC_CHANNELS: Channel[] = [
   {
     icon: <IgIcon />,
     title: "Instagram",
@@ -96,7 +109,12 @@ const CHANNELS: Channel[] = [
   },
 ];
 
-export default function ContactPage() {
+export default async function ContactPage() {
+  const settings = await getPublicSettings();
+  const email = settings.contact_email || "support@shopka.in";
+  const whatsappHref = buildWhatsAppLink(settings.whatsapp_number);
+  const channels = [...buildChannels(email, whatsappHref), ...STATIC_CHANNELS];
+
   return (
     <main className="min-h-screen bg-gray-50">
       {/* Hero */}
@@ -116,7 +134,7 @@ export default function ContactPage() {
       <section className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
         <h2 className="mb-5 text-xl font-bold text-gray-900">How to reach us</h2>
         <div className="grid gap-4 sm:grid-cols-2">
-          {CHANNELS.map(({ icon, title, sub, href, iconBg, iconColor, hoverBorder }) => {
+          {channels.map(({ icon, title, sub, href, iconBg, iconColor, hoverBorder }) => {
             const inner = (
               <>
                 <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${iconBg} ${iconColor}`}>
@@ -156,9 +174,9 @@ export default function ContactPage() {
       <section className="mx-auto max-w-3xl px-4 pb-14 sm:px-6">
         <div className="rounded-xl border border-brand-100 bg-brand-50/40 p-4 text-sm text-gray-600">
           💡 <strong>Tip:</strong> For the fastest help with orders, go to{" "}
-          <a href="/orders" className="font-semibold text-brand hover:underline">
+          <Link href="/orders" className="font-semibold text-brand hover:underline">
             My Orders
-          </a>{" "}
+          </Link>{" "}
           and use the cancel / return option directly — no need to contact us for that.
         </div>
       </section>

@@ -26,8 +26,9 @@ git push -u origin main
 |---|---|
 | `DATABASE_URL`, `DIRECT_URL` | Your Postgres provider (Supabase/Neon/Railway) |
 | `NEXTAUTH_URL` | Your production URL, e.g. `https://shopka.vercel.app` |
-| `NEXTAUTH_SECRET` | `openssl rand -base64 32` |
-| `GOOGLE_CLIENT_ID` / `_SECRET` | Google Cloud Console (optional, for Google login) |
+| `NEXTAUTH_SECRET` | `openssl rand -base64 32` (signs the session JWT — historical name, not related to NextAuth) |
+| `WHATSAPP_API_KEY` / `WHATSAPP_CAMPAIGN_NAME` | AiSensy Dashboard (primary OTP channel) — see `WHATSAPP_SETUP.md` |
+| `MESSAGECENTRAL_*` | Message Central Dashboard (SMS fallback) — see `MESSAGECENTRAL_SETUP.md` |
 | `NEXT_PUBLIC_FIREBASE_*` (6 vars) | Firebase Console — see `FIREBASE_SETUP.md` |
 | `FIREBASE_SERVICE_ACCOUNT_KEY` | Firebase Console — see `FIREBASE_SETUP.md` |
 | `RAZORPAY_KEY_ID` / `_KEY_SECRET` | Razorpay Dashboard — see `RAZORPAY_SETUP.md` |

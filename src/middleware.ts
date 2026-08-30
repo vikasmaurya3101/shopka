@@ -15,7 +15,6 @@ const PUBLIC_ROUTES = [
 ];
 
 const PROTECTED_ROUTES = [
-  "/cart",
   "/checkout",
   "/orders",
   "/profile",

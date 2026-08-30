@@ -2,19 +2,16 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { Mail, ShieldCheck } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
+import { Mail, MessageCircle, ShieldCheck } from "lucide-react";
+import { useAuth, type OtpChannel } from "@/hooks/useAuth";
 import Logo from "@/components/shared/Logo";
+import OtpInput from "@/components/auth/OtpInput";
 
 type Step = "phone" | "otp" | "profile";
 
-const GOOGLE_ERROR_MESSAGES: Record<string, string> = {
-  google_login_failed: "Google sign-in failed. Please try again.",
-  google_not_configured: "Google sign-in isn't available right now.",
-  google_no_email:
-    "Your Google account needs a verified email to sign in.",
-};
+const WHATSAPP_WAIT_SECONDS = 30;
 
 export default function LoginPage() {
   return (
@@ -28,61 +25,103 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirect") || "/";
-  const googleError = searchParams.get("error");
 
-  const {
-    // Using the legacy phone OTP flow (now backed by Message Central)
-    // instead of Firebase Phone Auth, since that needs Firebase's Blaze
-    // billing plan enabled. Swap these three back to firebaseSendOtp /
-    // firebaseVerifyOtp / firebaseCompleteProfile once that's set up —
-    // see FIREBASE_SETUP.md.
-    sendOtp,
-    verifyOtp,
-    completeProfile,
-    loginWithGoogle,
-    isSubmitting,
-    error,
-  } = useAuth();
+  const { sendOtp, verifyOtp, completeProfile, isSubmitting, error } = useAuth();
 
   const [step, setStep] = useState<Step>("phone");
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
+  const [otpInputKey, setOtpInputKey] = useState(0);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
 
+  // Delivery-channel state for the WhatsApp-first, SMS-fallback OTP flow.
+  const [channel, setChannel] = useState<OtpChannel>("whatsapp");
+  const [whatsappTriedFirst, setWhatsappTriedFirst] = useState(false);
+  const [fallbackFired, setFallbackFired] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  // Tick the "waiting for WhatsApp" countdown once a second.
   useEffect(() => {
-    if (googleError) {
-      setLocalError(
-        GOOGLE_ERROR_MESSAGES[googleError] ?? "Something went wrong."
-      );
+    if (step !== "otp" || channel !== "whatsapp" || fallbackFired || countdown <= 0) return;
+    const timer = setTimeout(() => setCountdown((s) => s - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [step, channel, fallbackFired, countdown]);
+
+  // 30s with no confirmed delivery on WhatsApp → fall back to SMS automatically.
+  useEffect(() => {
+    if (step === "otp" && channel === "whatsapp" && !fallbackFired && countdown === 0) {
+      void handleSmsFallback(true);
     }
-  }, [googleError]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [countdown, step, channel, fallbackFired]);
+
+  // Generic anti-spam cooldown for the resend control, independent of the
+  // WhatsApp wait timer above.
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setTimeout(() => setResendCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendCooldown]);
+
+  function resetOtpBoxes() {
+    setOtp("");
+    setOtpInputKey((k) => k + 1);
+  }
 
   async function handleSendOtp(e: React.FormEvent) {
     e.preventDefault();
 
     const digitsOnly = phone.replace(/\D/g, "");
-
     if (digitsOnly.length < 10) return;
 
-    const result = await sendOtp(digitsOnly);
+    setLocalError(null);
+    const result = await sendOtp(digitsOnly, "whatsapp");
 
     if (result.success) {
+      const usedChannel = result.channelUsed ?? "whatsapp";
+      setChannel(usedChannel);
+      setWhatsappTriedFirst(usedChannel === "whatsapp");
+      setFallbackFired(usedChannel !== "whatsapp");
+      setCountdown(usedChannel === "whatsapp" ? WHATSAPP_WAIT_SECONDS : 0);
+      setResendCooldown(WHATSAPP_WAIT_SECONDS);
+      resetOtpBoxes();
       setStep("otp");
     }
   }
 
-  async function handleVerifyOtp(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSmsFallback(isAutomatic: boolean) {
+    if (isSubmitting) return;
 
-    if (otp.trim().length < 4) return;
+    setFallbackFired(true);
+    setChannel("sms");
 
     const digitsOnly = phone.replace(/\D/g, "");
-    const result = await verifyOtp(digitsOnly, otp.trim());
+    const result = await sendOtp(digitsOnly, "sms");
 
-    if (!result.success) return;
+    if (result.success) {
+      resetOtpBoxes();
+      setResendCooldown(WHATSAPP_WAIT_SECONDS);
+      if (!isAutomatic) setLocalError(null);
+    }
+  }
+
+  async function handleResend() {
+    if (resendCooldown > 0 || isSubmitting) return;
+    await handleSmsFallback(false);
+  }
+
+  async function handleVerifyOtp(code: string) {
+    const digitsOnly = phone.replace(/\D/g, "");
+    const result = await verifyOtp(digitsOnly, code);
+
+    if (!result.success) {
+      resetOtpBoxes();
+      return;
+    }
 
     if (result.isNewUser) {
       setStep("profile");
@@ -109,13 +148,20 @@ function LoginForm() {
     }
   }
 
+  function handleChangeNumber() {
+    setStep("phone");
+    setChannel("whatsapp");
+    setFallbackFired(false);
+    setCountdown(0);
+    setResendCooldown(0);
+    resetOtpBoxes();
+    setLocalError(null);
+  }
+
   const displayError = error || localError;
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-50 via-white to-accent-50 px-4 py-10">
-      {/* Firebase's invisible reCAPTCHA mounts here — required for Phone Auth */}
-      <div id="firebase-recaptcha-container" />
-
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
@@ -132,7 +178,16 @@ function LoginForm() {
 
         <p className="mt-1 text-center text-sm text-gray-500">
           {step === "phone" && "Login or sign up to continue"}
-          {step === "otp" && `Enter the OTP sent to +91 ${phone}`}
+          {step === "otp" &&
+            (channel === "whatsapp" ? (
+              <>
+                Code sent on <span className="font-semibold text-gray-700">WhatsApp</span> to +91 {phone}
+              </>
+            ) : (
+              <>
+                Code sent via <span className="font-semibold text-gray-700">SMS</span> to +91 {phone}
+              </>
+            ))}
           {step === "profile" && "Tell us a bit about you"}
         </p>
 
@@ -158,24 +213,7 @@ function LoginForm() {
               exit={{ opacity: 0, x: -16 }}
               transition={{ duration: 0.2 }}
             >
-              <button
-                type="button"
-                onClick={() => loginWithGoogle(redirectTo)}
-                className="tap-shrink mt-6 flex w-full items-center justify-center gap-3 rounded-lg border-2 border-gray-200 py-3 font-semibold text-gray-700 transition hover:bg-gray-50"
-              >
-                <GoogleIcon />
-                Continue with Google
-              </button>
-
-              <div className="my-5 flex items-center gap-3">
-                <div className="h-px flex-1 bg-gray-200" />
-                <span className="text-xs font-medium text-gray-400">
-                  OR USE PHONE NUMBER
-                </span>
-                <div className="h-px flex-1 bg-gray-200" />
-              </div>
-
-              <form onSubmit={handleSendOtp} className="space-y-4">
+              <form onSubmit={handleSendOtp} className="mt-6 space-y-4">
                 <div className="flex items-center rounded-lg border px-4 py-3 focus-within:border-brand">
                   <span className="mr-2 text-sm font-medium text-gray-500">
                     +91
@@ -185,67 +223,112 @@ function LoginForm() {
                     inputMode="numeric"
                     placeholder="10-digit mobile number"
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
+                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
                     maxLength={10}
                     className="w-full outline-none"
                     required
+                    autoFocus
                   />
                 </div>
 
                 <button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || phone.replace(/\D/g, "").length < 10}
                   className="tap-shrink w-full rounded-lg bg-brand py-3 font-semibold text-white transition hover:bg-brand-dark disabled:opacity-60"
                 >
-                  {isSubmitting ? "Sending..." : "Send OTP"}
+                  {isSubmitting ? "Sending..." : "Continue"}
                 </button>
 
                 <p className="flex items-center justify-center gap-1.5 text-center text-xs text-gray-400">
-                  <ShieldCheck size={13} className="text-brand" />
-                  Verified securely via SMS OTP
+                  <MessageCircle size={13} className="text-green-600" />
+                  We&apos;ll verify via WhatsApp, with SMS as backup
                 </p>
               </form>
+
+              <p className="mt-6 text-center text-xs text-gray-400">
+                By continuing, you agree to Shopka&apos;s{" "}
+                <Link href="/terms" className="font-medium text-brand hover:underline">
+                  Terms
+                </Link>{" "}
+                &amp;{" "}
+                <Link href="/privacy" className="font-medium text-brand hover:underline">
+                  Privacy Policy
+                </Link>
+                .
+              </p>
             </motion.div>
           )}
 
           {step === "otp" && (
-            <motion.form
+            <motion.div
               key="otp"
               initial={{ opacity: 0, x: 16 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -16 }}
               transition={{ duration: 0.2 }}
-              onSubmit={handleVerifyOtp}
-              className="mt-6 space-y-4"
+              className="mt-6 space-y-5"
             >
-              <input
-                type="text"
-                inputMode="numeric"
-                placeholder="Enter OTP"
+              <OtpInput
+                key={otpInputKey}
                 value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-                maxLength={6}
-                className="w-full rounded-lg border px-4 py-3 text-center tracking-widest outline-none focus:border-brand"
-                required
-                autoFocus
+                onChange={setOtp}
+                onComplete={handleVerifyOtp}
+                disabled={isSubmitting}
+                error={Boolean(displayError)}
               />
 
               <button
-                type="submit"
-                disabled={isSubmitting}
+                type="button"
+                onClick={() => handleVerifyOtp(otp)}
+                disabled={isSubmitting || otp.length < 6}
                 className="tap-shrink w-full rounded-lg bg-brand py-3 font-semibold text-white transition hover:bg-brand-dark disabled:opacity-60"
               >
                 {isSubmitting ? "Verifying..." : "Verify OTP"}
               </button>
 
+              <div className="space-y-2 text-center">
+                {channel === "whatsapp" && !fallbackFired ? (
+                  <>
+                    <p className="text-xs text-gray-400">
+                      Didn&apos;t get it on WhatsApp? We&apos;ll send it via SMS automatically.
+                    </p>
+                    <button
+                      type="button"
+                      disabled
+                      className="text-sm font-semibold text-gray-400"
+                    >
+                      Send on SMS instead (0:{countdown.toString().padStart(2, "0")})
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    {whatsappTriedFirst && (
+                      <p className="text-xs text-gray-400">
+                        We&apos;ve also sent your code via SMS, just in case.
+                      </p>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleResend}
+                      disabled={resendCooldown > 0 || isSubmitting}
+                      className="text-sm font-semibold text-brand hover:underline disabled:text-gray-400 disabled:no-underline"
+                    >
+                      {resendCooldown > 0
+                        ? `Resend code (0:${resendCooldown.toString().padStart(2, "0")})`
+                        : "Resend via SMS"}
+                    </button>
+                  </>
+                )}
+              </div>
+
               <button
                 type="button"
-                onClick={() => setStep("phone")}
+                onClick={handleChangeNumber}
                 className="w-full text-center text-sm text-gray-500 hover:text-brand"
               >
                 Change phone number
               </button>
-            </motion.form>
+            </motion.div>
           )}
 
           {step === "profile" && (
@@ -307,30 +390,14 @@ function LoginForm() {
             </motion.form>
           )}
         </AnimatePresence>
+
+        {step === "phone" && (
+          <p className="mt-6 flex items-center justify-center gap-1.5 text-center text-xs text-gray-400">
+            <ShieldCheck size={13} className="text-brand" />
+            Your number is only used to verify your account
+          </p>
+        )}
       </motion.div>
     </main>
-  );
-}
-
-function GoogleIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true">
-      <path
-        fill="#FFC107"
-        d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 6.1 29.6 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.5z"
-      />
-      <path
-        fill="#FF3D00"
-        d="m6.3 14.7 6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 6.1 29.6 4 24 4 16.3 4 9.6 8.3 6.3 14.7z"
-      />
-      <path
-        fill="#4CAF50"
-        d="M24 44c5.5 0 10.4-1.9 14.1-5.1l-6.5-5.5C29.6 35.1 26.9 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"
-      />
-      <path
-        fill="#1976D2"
-        d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.2-4.1 5.6l6.5 5.5C41.5 35.9 44 30.5 44 24c0-1.3-.1-2.7-.4-3.5z"
-      />
-    </svg>
   );
 }

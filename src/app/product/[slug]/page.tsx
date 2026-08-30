@@ -1,4 +1,6 @@
+import { cache } from "react";
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import productService from "@/features/products/service/product.service";
 import { serializeData } from "@/lib/serialize";
 import ProductImageGallery from "@/components/product/ProductImageGallery";
@@ -6,10 +8,51 @@ import ProductPrice from "@/components/product/ProductPrice";
 import ProductRating from "@/components/product/ProductRating";
 import ProductGrid from "@/components/product/ProductGrid";
 import ProductActions from "@/components/product/ProductActions";
+import ProductReviews from "@/components/product/ProductReviews";
 import TrackProductView from "@/components/product/TrackProductView";
+import Breadcrumbs from "@/components/shared/Breadcrumbs";
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>;
+}
+
+// Deduped per-request: generateMetadata() and the page body both need the
+// same product, and this ensures we only hit the DB once for it.
+const getProduct = cache(async (slug: string) => {
+  const raw = await productService.getProductBySlug(slug);
+  return serializeData(raw);
+});
+
+export async function generateMetadata({
+  params,
+}: ProductPageProps): Promise<Metadata> {
+  const { slug } = await params;
+
+  try {
+    const product = await getProduct(slug);
+    if (!product) return { title: "Product Not Found" };
+
+    const title = product.seoTitle || product.name;
+    const description =
+      product.seoDescription ||
+      product.shortDescription ||
+      `Buy ${product.name} online at Shopka — best price, fast delivery across India.`;
+    const image = product.images?.[0]?.url;
+
+    return {
+      title,
+      description,
+      alternates: { canonical: `/product/${product.slug}` },
+      openGraph: {
+        title,
+        description,
+        images: image ? [{ url: image, width: 1200, height: 1200 }] : undefined,
+        type: "website",
+      },
+    };
+  } catch {
+    return { title: "Product Not Found" };
+  }
 }
 
 function getEstimatedDelivery() {
@@ -28,8 +71,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
   let product;
 
   try {
-    const raw = await productService.getProductBySlug(slug);
-    product = serializeData(raw);
+    product = await getProduct(slug);
   } catch {
     notFound();
   }
@@ -38,11 +80,30 @@ export default async function ProductPage({ params }: ProductPageProps) {
     notFound();
   }
 
+  const [reviewsPage, reviewSummary] = await Promise.all([
+    productService.getProductReviews(product.id, 1, 5),
+    productService.getReviewSummary(product.id),
+  ]);
+
+  const initialReviews = serializeData(reviewsPage.data);
+
   return (
-    <main className="min-h-screen bg-white p-4 sm:p-6">
+    // Extra bottom padding on mobile keeps content clear of the fixed
+    // Add to Cart / Buy Now bar rendered by ProductActions; sm:p-6 resets it
+    // back to normal once that bar is hidden at the sm breakpoint.
+    <main className="min-h-screen bg-white p-4 pb-28 sm:p-6">
       <TrackProductView productId={product.id} />
 
       <div className="mx-auto max-w-6xl">
+        <Breadcrumbs
+          className="mb-4"
+          items={[
+            { label: "Home", href: "/" },
+            { label: product.category.name, href: `/category/${product.category.slug}` },
+            { label: product.name },
+          ]}
+        />
+
         <div className="grid gap-8 rounded-xl border border-gray-100 bg-white p-5 shadow-sm sm:p-8 lg:grid-cols-2">
           <ProductImageGallery
             images={product.images}
@@ -135,6 +196,13 @@ export default async function ProductPage({ params }: ProductPageProps) {
             </div>
           </div>
         </div>
+
+        <ProductReviews
+          productId={product.id}
+          initialReviews={initialReviews}
+          initialSummary={reviewSummary}
+          initialTotalPages={reviewsPage.totalPages}
+        />
 
         {product.relatedProducts && product.relatedProducts.length > 0 && (
           <section className="mt-8">

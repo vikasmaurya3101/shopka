@@ -84,6 +84,13 @@ function getCustomerId(): string {
 }
 
 export const messageCentralProvider = {
+  isConfigured(): boolean {
+    return Boolean(
+      process.env.MESSAGECENTRAL_AUTH_TOKEN ||
+        (process.env.MESSAGECENTRAL_CUSTOMER_ID && process.env.MESSAGECENTRAL_PASSWORD)
+    );
+  },
+
   /**
    * Asks Message Central to generate and send an OTP to the given
    * 10-digit Indian mobile number. Returns their verificationId, which

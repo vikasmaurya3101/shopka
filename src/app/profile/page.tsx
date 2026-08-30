@@ -18,6 +18,7 @@ import {
 import { toast } from "sonner";
 import { useSession } from "@/providers/SessionProvider";
 import { useAuth } from "@/hooks/useAuth";
+import { useSiteSettings, buildWhatsAppLink } from "@/hooks/useSiteSettings";
 import { AddressData } from "@/types/order";
 import { getInitials } from "@/lib/utils";
 import Loader from "@/components/ui/Loader";
@@ -25,8 +26,10 @@ import Loader from "@/components/ui/Loader";
 export default function ProfilePage() {
   const { user, isAuthenticated, isLoading } = useSession();
   const { logout } = useAuth();
+  const { settings } = useSiteSettings();
   const [addresses, setAddresses] = useState<AddressData[]>([]);
   const [copied, setCopied] = useState(false);
+  const whatsappHref = buildWhatsAppLink(settings.whatsapp_number);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -208,12 +211,14 @@ export default function ProfilePage() {
               gradient="from-red-600 to-red-500"
               icon={<YtIcon />}
             />
-            <SocialBtn
-              href="https://wa.me/919999999999"
-              label="WhatsApp"
-              gradient="from-green-500 to-emerald-500"
-              icon={<MessageCircle size={18} />}
-            />
+            {whatsappHref && (
+              <SocialBtn
+                href={whatsappHref}
+                label="WhatsApp"
+                gradient="from-green-500 to-emerald-500"
+                icon={<MessageCircle size={18} />}
+              />
+            )}
           </div>
         </div>
 

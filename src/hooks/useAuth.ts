@@ -10,10 +10,13 @@ import {
 import { getFirebaseAuth } from "@/lib/firebase";
 import { useSession } from "@/providers/SessionProvider";
 
+export type OtpChannel = "whatsapp" | "sms";
+
 interface ApiResult<T = unknown> {
   success: boolean;
   message?: string;
   isNewUser?: boolean;
+  channelUsed?: OtpChannel;
   data?: T;
 }
 
@@ -58,10 +61,13 @@ interface SessionUserResult {
 
 /**
  * Client hook wrapping the app's authentication flows:
- * - Phone + OTP: sendOtp -> verifyOtp -> (completeProfile if new user)
- * - Google: loginWithGoogle (full-page redirect) -> addPhone if the
- *   account doesn't have one yet
- * - logout for both
+ * - Phone + OTP: sendOtp(phone, channel) -> verifyOtp -> (completeProfile
+ *   if new user). `channel` defaults to "whatsapp" (with automatic SMS
+ *   fallback server-side); pass "sms" to force SMS directly, e.g. from
+ *   the "Send on SMS instead" button.
+ * - addPhone: attaches/verifies a phone number on the current (logged-in)
+ *   session — used by /add-phone, e.g. for legacy accounts without one.
+ * - logout
  */
 export function useAuth() {
   const { user, isAuthenticated, isLoading, refresh, setUser } =
@@ -71,22 +77,25 @@ export function useAuth() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const sendOtp = useCallback(async (phone: string) => {
-    setIsSubmitting(true);
-    setError(null);
+  const sendOtp = useCallback(
+    async (phone: string, channel: OtpChannel = "whatsapp") => {
+      setIsSubmitting(true);
+      setError(null);
 
-    try {
-      const result = await postJson("/api/auth/send-otp", { phone });
+      try {
+        const result = await postJson("/api/auth/send-otp", { phone, channel });
 
-      if (!result.success) {
-        setError(result.message ?? "Unable to send OTP.");
+        if (!result.success) {
+          setError(result.message ?? "Unable to send OTP.");
+        }
+
+        return result;
+      } finally {
+        setIsSubmitting(false);
       }
-
-      return result;
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, []);
+    },
+    []
+  );
 
   const verifyOtp = useCallback(
     async (phone: string, otp: string) => {
@@ -271,13 +280,6 @@ export function useAuth() {
     [refresh]
   );
 
-  /** Starts the Google OAuth flow via a full-page redirect. */
-  const loginWithGoogle = useCallback((redirectTo = "/") => {
-    window.location.href = `/api/auth/google?redirect=${encodeURIComponent(
-      redirectTo
-    )}`;
-  }, []);
-
   /** Attaches and verifies a phone number on the current (logged-in) account. */
   const addPhone = useCallback(
     async (phone: string, otp: string) => {
@@ -324,7 +326,6 @@ export function useAuth() {
     firebaseSendOtp,
     firebaseVerifyOtp,
     firebaseCompleteProfile,
-    loginWithGoogle,
     addPhone,
     logout,
   };

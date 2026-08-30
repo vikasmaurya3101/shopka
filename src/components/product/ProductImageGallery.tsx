@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useRef, useState } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { ProductImageData } from "@/types/product";
 
@@ -11,6 +11,26 @@ interface ProductImageGalleryProps {
 }
 
 const SWIPE_THRESHOLD = 40;
+const ZOOM_SCALE = 2.2;
+const FINE_POINTER_QUERY = "(pointer: fine)";
+
+// Subscribing to matchMedia via useSyncExternalStore (rather than the more
+// typical useState+useEffect combo) keeps this SSR-safe without causing an
+// extra post-mount render: the server snapshot is always `false`, and React
+// resolves the real value during the client's hydration pass.
+function subscribeFinePointer(onChange: () => void) {
+  const mediaQuery = window.matchMedia(FINE_POINTER_QUERY);
+  mediaQuery.addEventListener("change", onChange);
+  return () => mediaQuery.removeEventListener("change", onChange);
+}
+
+function getFinePointerSnapshot() {
+  return window.matchMedia(FINE_POINTER_QUERY).matches;
+}
+
+function getFinePointerServerSnapshot() {
+  return false;
+}
 
 export default function ProductImageGallery({
   images,
@@ -21,6 +41,16 @@ export default function ProductImageGallery({
   );
   const [activeIndex, setActiveIndex] = useState(0);
   const touchStartX = useRef<number | null>(null);
+
+  // Hover-to-zoom is desktop/mouse only. `pointer: fine` also guards
+  // against touchscreen laptops that can fire synthetic mouse events.
+  const isFinePointer = useSyncExternalStore(
+    subscribeFinePointer,
+    getFinePointerSnapshot,
+    getFinePointerServerSnapshot
+  );
+  const [isZooming, setIsZooming] = useState(false);
+  const [zoomOrigin, setZoomOrigin] = useState({ x: 50, y: 50 });
 
   const active = sorted[activeIndex] ?? sorted[0];
 
@@ -42,6 +72,31 @@ export default function ProductImageGallery({
     }
 
     touchStartX.current = null;
+  }
+
+  // Magnifying-glass zoom: track the cursor's relative position inside the
+  // frame and use it as the transform-origin while the image is scaled up,
+  // so the zoomed area follows the pointer. Only bound via mouse events —
+  // touch interactions never fire these, so swipe/tap behavior is untouched.
+  function handleMouseMove(e: React.MouseEvent<HTMLDivElement>) {
+    if (!isFinePointer) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+
+    setZoomOrigin({
+      x: Math.min(100, Math.max(0, x)),
+      y: Math.min(100, Math.max(0, y)),
+    });
+  }
+
+  function handleMouseEnter() {
+    if (isFinePointer) setIsZooming(true);
+  }
+
+  function handleMouseLeave() {
+    setIsZooming(false);
   }
 
   if (!active) {
@@ -75,19 +130,32 @@ export default function ProductImageGallery({
       </div>
 
       <div
-        className="relative aspect-square w-full flex-1 overflow-hidden rounded-xl bg-gray-50"
+        className={`relative aspect-square w-full flex-1 overflow-hidden rounded-xl bg-gray-50 ${
+          isFinePointer ? "cursor-zoom-in" : ""
+        }`}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
+        onMouseMove={handleMouseMove}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
       >
-        <Image
-          key={active.id}
-          src={active.url}
-          alt={active.altText ?? productName}
-          fill
-          sizes="(max-width: 768px) 100vw, 500px"
-          className="object-contain"
-          priority
-        />
+        <div
+          className="absolute inset-0 transition-transform duration-200 ease-out"
+          style={{
+            transform: isZooming ? `scale(${ZOOM_SCALE})` : "scale(1)",
+            transformOrigin: `${zoomOrigin.x}% ${zoomOrigin.y}%`,
+          }}
+        >
+          <Image
+            key={active.id}
+            src={active.url}
+            alt={active.altText ?? productName}
+            fill
+            sizes="(max-width: 768px) 100vw, 500px"
+            className="object-contain"
+            priority
+          />
+        </div>
 
         {sorted.length > 1 && (
           <>

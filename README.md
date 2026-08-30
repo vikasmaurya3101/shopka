@@ -37,7 +37,5 @@ git push
 Vercel will auto-redeploy. Then test **Send OTP** again on your live site.
 
 ## Still outstanding (not code — needs your dashboard access):
-- [ ] Google OAuth: add `https://shopka.in/api/auth/google/callback`
-      to Authorized redirect URIs in Google Cloud Console
 - [ ] Confirm `npx prisma migrate deploy` has been run against your
       **production** Supabase database (not just locally)

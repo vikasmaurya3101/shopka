@@ -1,6 +1,7 @@
+import type { Metadata } from "next";
 import { Mail } from "lucide-react";
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "Careers | Shopka",
 };
 
@@ -18,11 +19,11 @@ export default function CareersPage() {
       </p>
 
       <a
-        href="mailto:bachatmall.24@gmail.com"
+        href="mailto:careers@shopka.in"
         className="mt-2 flex items-center gap-2 rounded-full bg-brand px-6 py-3 font-semibold text-white transition hover:bg-brand-dark"
       >
         <Mail size={18} />
-        bachatmall.24@gmail.com
+        careers@shopka.in
       </a>
     </main>
   );

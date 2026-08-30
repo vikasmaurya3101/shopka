@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
 
     const res = await fetch(url.toString(), {
       headers: {
-        "User-Agent": "Shopka/1.0 (contact: bachatmall.24@gmail.com)",
+        "User-Agent": "Shopka/1.0 (contact: support@shopka.in)",
         "Accept-Language": "en",
       },
     });

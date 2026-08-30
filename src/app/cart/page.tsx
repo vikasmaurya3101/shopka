@@ -2,37 +2,33 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Minus, Plus, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { Minus, Plus, Tag, Trash2, X } from "lucide-react";
 import { useCart } from "@/hooks/useCart";
 import { useSession } from "@/providers/SessionProvider";
 import { formatCurrency } from "@/lib/utils/currency";
+import { calculateShipping, FREE_SHIPPING_THRESHOLD } from "@/lib/utils/shipping";
 import Loader from "@/components/ui/Loader";
+
+interface AppliedCoupon {
+  code: string;
+  type: string;
+  discountAmount: number;
+}
 
 export default function CartPage() {
   const { isAuthenticated, isLoading: isSessionLoading } = useSession();
-  const { cart, isLoading, isMutating, updateQuantity, removeItem } =
-    useCart();
+  const { cart, isLoading, isMutating, updateQuantity, removeItem } = useCart();
+
+  const [couponInput, setCouponInput] = useState("");
+  const [coupon, setCoupon] = useState<AppliedCoupon | null>(null);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
 
   if (isSessionLoading || isLoading) {
     return (
       <main className="min-h-screen bg-gray-50 p-6">
         <Loader size="lg" />
-      </main>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return (
-      <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-gray-50 p-6 text-center">
-        <h1 className="text-2xl font-bold text-gray-800">
-          Login to view your cart
-        </h1>
-        <Link
-          href="/login?redirect=/cart"
-          className="rounded-lg bg-brand px-6 py-3 font-semibold text-white hover:bg-brand-dark"
-        >
-          Login
-        </Link>
       </main>
     );
   }
@@ -64,6 +60,42 @@ export default function CartPage() {
     (sum, item) => sum + Number(item.product.mrp) * item.quantity,
     0
   );
+
+  const allFreeShipping = items.every((item) => item.product.freeShipping);
+  const shipping =
+    coupon?.type === "FREE_SHIPPING" ? 0 : calculateShipping(subtotal, allFreeShipping);
+  const couponDiscount = coupon?.discountAmount ?? 0;
+  const total = Math.max(0, subtotal + shipping - couponDiscount);
+
+  async function handleApplyCoupon(e: React.FormEvent) {
+    e.preventDefault();
+    if (!couponInput.trim()) return;
+
+    setIsApplyingCoupon(true);
+    setCouponError(null);
+
+    try {
+      const res = await fetch("/api/coupons/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: couponInput.trim(), subtotal }),
+      });
+      const json = await res.json();
+
+      if (!json.success) {
+        setCouponError(json.message ?? "Unable to apply coupon.");
+        setCoupon(null);
+        return;
+      }
+
+      setCoupon(json.data);
+      setCouponInput("");
+    } catch {
+      setCouponError("Unable to apply coupon. Please try again.");
+    } finally {
+      setIsApplyingCoupon(false);
+    }
+  }
 
   return (
     <main className="min-h-screen bg-gray-50 p-4 sm:p-6">
@@ -153,32 +185,102 @@ export default function CartPage() {
             })}
           </div>
 
-          <div className="h-fit rounded-xl border bg-white p-5">
-            <h2 className="mb-4 font-semibold text-gray-800">
-              Price Details
-            </h2>
-
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between text-gray-600">
-                <span>Price ({items.length} items)</span>
-                <span>{formatCurrency(mrpTotal)}</span>
-              </div>
-              <div className="flex justify-between text-brand">
-                <span>Discount</span>
-                <span>-{formatCurrency(mrpTotal - subtotal)}</span>
-              </div>
-              <div className="flex justify-between border-t pt-2 font-semibold text-gray-900">
-                <span>Total</span>
-                <span>{formatCurrency(subtotal)}</span>
-              </div>
+          <div className="h-fit space-y-4">
+            {/* Promo code */}
+            <div className="rounded-xl border bg-white p-4">
+              {coupon ? (
+                <div className="flex items-center justify-between rounded-lg bg-success-light px-3 py-2">
+                  <span className="flex items-center gap-2 text-sm font-semibold text-success">
+                    <Tag size={15} />
+                    {coupon.code} applied
+                  </span>
+                  <button
+                    onClick={() => setCoupon(null)}
+                    aria-label="Remove coupon"
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleApplyCoupon} className="flex gap-2">
+                  <div className="flex flex-1 items-center gap-2 rounded-lg border px-3 focus-within:border-brand">
+                    <Tag size={15} className="text-gray-400" />
+                    <input
+                      value={couponInput}
+                      onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                      placeholder="Enter coupon code"
+                      className="w-full py-2.5 text-sm uppercase outline-none placeholder:normal-case"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={isApplyingCoupon || !couponInput.trim()}
+                    className="tap-shrink rounded-lg bg-brand px-4 text-sm font-semibold text-white transition hover:bg-brand-dark disabled:opacity-60"
+                  >
+                    {isApplyingCoupon ? "..." : "Apply"}
+                  </button>
+                </form>
+              )}
+              {couponError && (
+                <p className="mt-2 text-xs text-red-600">{couponError}</p>
+              )}
             </div>
 
-            <Link
-              href="/checkout"
-              className="mt-5 block rounded-xl bg-brand py-3 text-center font-semibold text-white transition hover:bg-brand-dark"
-            >
-              Proceed to Checkout
-            </Link>
+            {/* Price details */}
+            <div className="rounded-xl border bg-white p-5">
+              <h2 className="mb-4 font-semibold text-gray-800">
+                Price Details
+              </h2>
+
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between text-gray-600">
+                  <span>Price ({items.length} items)</span>
+                  <span>{formatCurrency(mrpTotal)}</span>
+                </div>
+                <div className="flex justify-between text-brand">
+                  <span>Discount</span>
+                  <span>-{formatCurrency(mrpTotal - subtotal)}</span>
+                </div>
+                {coupon && couponDiscount > 0 && (
+                  <div className="flex justify-between text-brand">
+                    <span>Coupon ({coupon.code})</span>
+                    <span>-{formatCurrency(couponDiscount)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-gray-600">
+                  <span>Shipping</span>
+                  {shipping === 0 ? (
+                    <span className="font-medium text-success">FREE</span>
+                  ) : (
+                    <span>{formatCurrency(shipping)}</span>
+                  )}
+                </div>
+                <div className="flex justify-between border-t pt-2 font-semibold text-gray-900">
+                  <span>Total</span>
+                  <span>{formatCurrency(total)}</span>
+                </div>
+              </div>
+
+              {shipping > 0 && (
+                <p className="mt-3 text-xs text-gray-400">
+                  Add {formatCurrency(FREE_SHIPPING_THRESHOLD - subtotal)} more for free shipping.
+                </p>
+              )}
+
+              <Link
+                href={isAuthenticated ? "/checkout" : "/login?redirect=/checkout"}
+                className="mt-5 block rounded-xl bg-brand py-3 text-center font-semibold text-white transition hover:bg-brand-dark"
+              >
+                Proceed to Checkout
+              </Link>
+
+              {!isAuthenticated && (
+                <p className="mt-2 text-center text-xs text-gray-400">
+                  You&apos;ll be asked to login at checkout.
+                </p>
+              )}
+            </div>
           </div>
         </div>
       </div>

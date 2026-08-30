@@ -14,73 +14,113 @@ import { whatsappProvider } from "../providers/whatsapp.provider";
 import { smsProvider } from "../providers/sms.provider";
 import { messageCentralProvider } from "../providers/messagecentral.provider";
 
-/**
- * Picks the OTP delivery provider based on process.env.OTP_PROVIDER:
- * - "messagecentral": Message Central VerifyNow (generates + validates the
- *   OTP on their end — no DLT registration needed, unlike a plain SMS API)
- * - "whatsapp": WhatsApp primary, falls back to SMS if it fails
- * - "sms": SMS only
- * - anything else (default "mock"): logs the OTP to the console (dev only)
- */
-function currentProvider() {
-  return (process.env.OTP_PROVIDER ?? "mock").toLowerCase();
+export type OtpChannelRequest = "whatsapp" | "sms";
+
+export interface SendOtpResult {
+  success: true;
+  channelUsed: OtpChannelRequest;
 }
 
-async function deliverOtp(phone: string, otp: string) {
-  const provider = currentProvider();
+/** True when nothing real is configured — logs OTPs to the console instead of sending them. */
+function isMockMode(): boolean {
+  const hasRealProvider =
+    whatsappProvider.isConfigured() ||
+    messageCentralProvider.isConfigured() ||
+    smsProvider.isConfigured();
 
-  if (provider === "whatsapp") {
-    try {
-      await whatsappProvider.send(phone, otp);
-      return;
-    } catch (err) {
-      console.error("WhatsApp OTP delivery failed, falling back to SMS:", err);
-      await smsProvider.send(phone, otp);
-      return;
-    }
-  }
-
-  if (provider === "sms") {
-    await smsProvider.send(phone, otp);
-    return;
-  }
-
-  await mockProvider.send(phone, otp);
+  return !hasRealProvider || (process.env.OTP_PROVIDER ?? "").toLowerCase() === "mock";
 }
 
 export class OtpService {
-  async sendOtp(phone: string, purpose: OtpPurpose) {
+  /**
+   * Sends a login/signup OTP. Login flow:
+   *  - channel "whatsapp" (default): tries WhatsApp first; if it's not
+   *    configured or the send fails, falls straight through to SMS in the
+   *    same call so the caller never has to guess which one worked.
+   *  - channel "sms": skips WhatsApp entirely (used for the "Send on SMS
+   *    instead" fallback after 30s, or when the caller already knows
+   *    WhatsApp isn't an option).
+   * The actual delivery channel used is returned as `channelUsed` so the
+   * UI can show the right message ("sent via WhatsApp" vs "sent via SMS").
+   */
+  async sendOtp(
+    phone: string,
+    purpose: OtpPurpose,
+    channel: OtpChannelRequest = "whatsapp"
+  ): Promise<SendOtpResult> {
     await authRepository.clearPendingOtp(phone, purpose);
 
-    if (currentProvider() === "messagecentral") {
-      // Message Central generates its own OTP — we just keep a record of
-      // their verificationId (reusing the otpHash column) so verifyOtp()
-      // knows which verification to check against.
+    if (isMockMode()) {
+      const otp = generateOtp();
+      const otpHash = await hashOtp(otp);
+
+      await authRepository.createOtp({
+        phone,
+        otpHash,
+        purpose,
+        channel: channel === "whatsapp" ? "WHATSAPP" : "SMS",
+        provider: "mock",
+        expiresAt: getExpiryDate(),
+      });
+
+      await mockProvider.send(phone, otp);
+      return { success: true, channelUsed: channel };
+    }
+
+    if (channel === "whatsapp" && whatsappProvider.isConfigured()) {
+      try {
+        const otp = generateOtp();
+        const otpHash = await hashOtp(otp);
+
+        await whatsappProvider.send(phone, otp);
+
+        await authRepository.createOtp({
+          phone,
+          otpHash,
+          purpose,
+          channel: "WHATSAPP",
+          provider: "aisensy",
+          expiresAt: getExpiryDate(),
+        });
+
+        return { success: true, channelUsed: "whatsapp" };
+      } catch (err) {
+        console.error("WhatsApp OTP delivery failed, falling back to SMS:", err);
+        // fall through to SMS below
+      }
+    }
+
+    // SMS path — either explicitly requested, or WhatsApp unavailable/failed.
+    if (messageCentralProvider.isConfigured()) {
       const verificationId = await messageCentralProvider.sendOtp(phone);
 
       await authRepository.createOtp({
         phone,
         otpHash: verificationId,
         purpose,
+        channel: "SMS",
+        provider: "messagecentral",
         expiresAt: getExpiryDate(),
       });
 
-      return true;
+      return { success: true, channelUsed: "sms" };
     }
 
     const otp = generateOtp();
     const otpHash = await hashOtp(otp);
 
+    await smsProvider.send(phone, otp);
+
     await authRepository.createOtp({
       phone,
       otpHash,
       purpose,
+      channel: "SMS",
+      provider: "sms",
       expiresAt: getExpiryDate(),
     });
 
-    await deliverOtp(phone, otp);
-
-    return true;
+    return { success: true, channelUsed: "sms" };
   }
 
   async verifyOtp(phone: string, otp: string, purpose: OtpPurpose) {
@@ -98,13 +138,14 @@ export class OtpService {
       throw new Error("Maximum attempts exceeded");
     }
 
-    let valid: boolean;
-
-    if (currentProvider() === "messagecentral") {
-      valid = await messageCentralProvider.verifyOtp(record.otpHash, otp);
-    } else {
-      valid = await compareOtp(otp, record.otpHash);
-    }
+    // Verification method follows whichever provider actually generated
+    // this specific OTP record, not the current global default — this
+    // keeps mixed WhatsApp-then-SMS-fallback attempts within one login
+    // working correctly regardless of which one the user ends up using.
+    const valid =
+      record.provider === "messagecentral"
+        ? await messageCentralProvider.verifyOtp(record.otpHash, otp)
+        : await compareOtp(otp, record.otpHash);
 
     if (!valid) {
       await authRepository.increaseAttempts(record.id);

@@ -73,8 +73,8 @@ export default function HelpPage() {
           <div className="rounded-lg border border-gray-200 p-4">
             <p className="font-semibold text-gray-900">Email us</p>
             <p className="mt-1 text-sm text-gray-600">
-              <a href="mailto:support@bachatmall.com" className="text-brand hover:underline">
-                support@bachatmall.com
+              <a href="mailto:support@shopka.in" className="text-brand hover:underline">
+                support@shopka.in
               </a>
             </p>
           </div>

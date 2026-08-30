@@ -1,4 +1,4 @@
-import { OtpPurpose } from "@prisma/client";
+import { OtpChannel, OtpPurpose } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 export class AuthRepository {
@@ -23,6 +23,8 @@ export class AuthRepository {
     phone: string;
     otpHash: string;
     purpose: OtpPurpose;
+    channel: OtpChannel;
+    provider: string;
     expiresAt: Date;
   }) {
     return prisma.otpVerification.create({
@@ -30,7 +32,8 @@ export class AuthRepository {
         phone: data.phone,
         otpHash: data.otpHash,
         purpose: data.purpose,
-        channel: "WHATSAPP",
+        channel: data.channel,
+        provider: data.provider,
         expiresAt: data.expiresAt,
       },
     });
@@ -101,52 +104,6 @@ export class AuthRepository {
     return prisma.user.findUnique({
       where: {
         email,
-      },
-    });
-  }
-
-  async findUserByGoogleId(googleId: string) {
-    return prisma.user.findUnique({
-      where: {
-        googleId,
-      },
-    });
-  }
-
-  async createUserFromGoogle(data: {
-    googleId: string;
-    email: string;
-    firstName?: string;
-    lastName?: string;
-    profileImage?: string;
-  }) {
-    return prisma.user.create({
-      data: {
-        googleId: data.googleId,
-        email: data.email,
-        emailVerified: true,
-        firstName: data.firstName ?? null,
-        lastName: data.lastName ?? null,
-        profileImage: data.profileImage ?? null,
-      },
-    });
-  }
-
-  async linkGoogleAccount(
-    userId: string,
-    data: {
-      googleId: string;
-      profileImage?: string;
-    }
-  ) {
-    return prisma.user.update({
-      where: {
-        id: userId,
-      },
-      data: {
-        googleId: data.googleId,
-        emailVerified: true,
-        profileImage: data.profileImage ?? undefined,
       },
     });
   }
