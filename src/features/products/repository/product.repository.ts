@@ -496,6 +496,69 @@ class ProductRepository {
     });
   }
 
+  /**
+   * Narrow variant of search() for navbar autocomplete. Selects only the
+   * columns the dropdown renders — notably skipping `description`, which is
+   * long-form text and would otherwise be shipped on every keystroke.
+   */
+  async suggest(
+    keyword: string,
+    limit = 6
+  ) {
+    return prisma.product.findMany({
+      where: {
+        isPublished: true,
+
+        OR: [
+          {
+            name: {
+              contains: keyword,
+              mode: "insensitive",
+            },
+          },
+
+          {
+            searchKeywords: {
+              contains: keyword,
+              mode: "insensitive",
+            },
+          },
+        ],
+      },
+
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        mrp: true,
+        sellingPrice: true,
+        stock: true,
+
+        images: {
+          take: 1,
+          orderBy: {
+            displayOrder: "asc",
+          },
+          select: {
+            id: true,
+            url: true,
+            altText: true,
+            isThumbnail: true,
+            displayOrder: true,
+          },
+        },
+      },
+
+      // Cheapest-first is a poor match for "what did I mean?", so keep the
+      // catalogue's own ordering and let relevance come from the name match.
+      orderBy: {
+        totalReviews: "desc",
+      },
+
+      take: limit,
+    });
+  }
+
   async getRelatedProducts(
     productId: string,
     categoryId: string,

@@ -73,10 +73,11 @@ export interface ProductDetailsData extends ProductCardData {
 }
 
 /**
- * Lightweight product shape returned by GET /api/products/search.
- * productRepository.search() only includes a single image and skips the
- * brand/category/subCategory relations, so this is intentionally narrower
- * than ProductCardData. Used for navbar search-autocomplete suggestions.
+ * Lightweight product shape returned by GET /api/products/suggestions, which
+ * backs the navbar search-autocomplete dropdown. productRepository.suggest()
+ * selects only these columns plus one image — no long-form `description` and
+ * no brand/category/subCategory relations — because the endpoint is hit on
+ * every (debounced) keystroke. Intentionally narrower than ProductCardData.
  */
 export interface ProductSearchResult {
   id: string;

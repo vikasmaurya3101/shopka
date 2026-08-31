@@ -31,6 +31,13 @@ class ProductService {
     return productRepository.search(keyword);
   }
 
+  async suggest(
+    keyword: string,
+    limit?: number
+  ) {
+    return productRepository.suggest(keyword, limit);
+  }
+
   async getProductById(
     id: string
   ) {

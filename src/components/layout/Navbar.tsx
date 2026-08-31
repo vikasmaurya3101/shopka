@@ -32,6 +32,15 @@ import Logo from "@/components/shared/Logo";
 
 const MAX_SUGGESTIONS = 6;
 
+/** Matches the floor in /api/products/suggestions — below this it returns []. */
+const MIN_SUGGEST_LENGTH = 2;
+
+// Only one dropdown is ever mounted at a time (activeField is single-valued),
+// but the two forms need distinct ids so aria-activedescendant can't point at
+// an option belonging to the other one.
+const DESKTOP_LISTBOX_ID = "navbar-search-suggestions-desktop";
+const MOBILE_LISTBOX_ID = "navbar-search-suggestions-mobile";
+
 interface SearchSuggestResponse {
   success: boolean;
   data?: ProductSearchResult[];
@@ -49,6 +58,9 @@ export default function Navbar({ logoUrl = "/brand/logo-128.png" }: { logoUrl?: 
   const [suggestions, setSuggestions] = useState<ProductSearchResult[]>([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [activeField, setActiveField] = useState<"desktop" | "mobile" | null>(null);
+  // Index of the keyboard-highlighted suggestion; -1 means "none", in which
+  // case Enter falls through to the form and runs a full search instead.
+  const [activeIndex, setActiveIndex] = useState(-1);
 
   const debouncedQuery = useDebounce(query, 300);
   const requestIdRef = useRef(0);
@@ -66,20 +78,22 @@ export default function Navbar({ logoUrl = "/brand/logo-128.png" }: { logoUrl?: 
   // True the instant the user types, until the debounced value below
   // catches up — so the dropdown can show a "searching" state right away
   // instead of popping from nothing straight to "No results".
-  const isAwaitingDebounce = query.trim().length > 0 && query !== debouncedQuery;
+  const canSuggest = query.trim().length >= MIN_SUGGEST_LENGTH;
+  const isAwaitingDebounce = canSuggest && query !== debouncedQuery;
 
   useEffect(() => {
     const trimmed = debouncedQuery.trim();
 
-    if (!trimmed) {
+    if (trimmed.length < MIN_SUGGEST_LENGTH) {
       setSuggestions([]);
       setSuggestionsLoading(false);
       return;
     }
 
     const requestId = ++requestIdRef.current;
+    setSuggestionsLoading(true);
 
-    fetch(`/api/products/search?q=${encodeURIComponent(trimmed)}`)
+    fetch(`/api/products/suggestions?q=${encodeURIComponent(trimmed)}`)
       .then((res) => res.json())
       .then((json: SearchSuggestResponse) => {
         if (requestId !== requestIdRef.current) return;
@@ -128,6 +142,42 @@ export default function Navbar({ logoUrl = "/brand/logo-128.png" }: { logoUrl?: 
     setActiveField(null);
   }
 
+  // New query text and switching between the two search boxes both invalidate
+  // the current keyboard highlight. Resetting it in these handlers rather than
+  // in an effect keyed on [query, activeField] avoids a second render pass on
+  // every keystroke.
+  function handleQueryChange(value: string) {
+    setQuery(value);
+    setActiveIndex(-1);
+  }
+
+  function openSuggestions(field: "desktop" | "mobile") {
+    setActiveField(field);
+    setActiveIndex(-1);
+  }
+
+  // Arrow keys move the highlight; Enter on a highlighted row navigates
+  // straight to that product (and we stop the event so the form's own submit
+  // — a full search — doesn't also fire).
+  function handleSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (suggestions.length === 0) return;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIndex((i) => (i + 1) % suggestions.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIndex((i) => (i <= 0 ? suggestions.length - 1 : i - 1));
+    } else if (e.key === "Enter" && activeIndex >= 0) {
+      const picked = suggestions[activeIndex];
+      if (picked) {
+        e.preventDefault();
+        setActiveField(null);
+        router.push(`/product/${picked.slug}`);
+      }
+    }
+  }
+
   return (
     <>
       <header className="sticky top-0 z-50 border-b bg-white/95 shadow-sm backdrop-blur">
@@ -146,10 +196,20 @@ export default function Navbar({ logoUrl = "/brand/logo-128.png" }: { logoUrl?: 
               />
               <input
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onFocus={() => setActiveField("desktop")}
+                onChange={(e) => handleQueryChange(e.target.value)}
+                onFocus={() => openSuggestions("desktop")}
+                onKeyDown={handleSearchKeyDown}
                 placeholder="Search for products..."
                 autoComplete="off"
+                role="combobox"
+                aria-expanded={activeField === "desktop" && canSuggest}
+                aria-controls={DESKTOP_LISTBOX_ID}
+                aria-autocomplete="list"
+                aria-activedescendant={
+                  activeField === "desktop" && activeIndex >= 0
+                    ? `${DESKTOP_LISTBOX_ID}-option-${activeIndex}`
+                    : undefined
+                }
                 className="w-full rounded-full border border-gray-200 bg-gray-50 py-2.5 pl-11 pr-28 outline-none transition focus:border-brand focus:bg-white"
               />
               <button
@@ -160,11 +220,14 @@ export default function Navbar({ logoUrl = "/brand/logo-128.png" }: { logoUrl?: 
               </button>
 
               <AnimatePresence>
-                {activeField === "desktop" && query.trim().length > 0 && (
+                {activeField === "desktop" && canSuggest && (
                   <SearchSuggestions
+                    listboxId={DESKTOP_LISTBOX_ID}
                     loading={isAwaitingDebounce || suggestionsLoading}
                     results={suggestions}
                     query={query}
+                    activeIndex={activeIndex}
+                    onHighlight={setActiveIndex}
                     onSelect={closeSuggestions}
                   />
                 )}
@@ -277,10 +340,20 @@ export default function Navbar({ logoUrl = "/brand/logo-128.png" }: { logoUrl?: 
             <Search size={18} className="absolute left-3.5 text-gray-400" />
             <input
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onFocus={() => setActiveField("mobile")}
+              onChange={(e) => handleQueryChange(e.target.value)}
+              onFocus={() => openSuggestions("mobile")}
+              onKeyDown={handleSearchKeyDown}
               placeholder="Search for products..."
               autoComplete="off"
+              role="combobox"
+              aria-expanded={activeField === "mobile" && canSuggest}
+              aria-controls={MOBILE_LISTBOX_ID}
+              aria-autocomplete="list"
+              aria-activedescendant={
+                activeField === "mobile" && activeIndex >= 0
+                  ? `${MOBILE_LISTBOX_ID}-option-${activeIndex}`
+                  : undefined
+              }
               className="w-full rounded-full border border-gray-200 bg-gray-50 py-2 pl-10 pr-16 text-sm outline-none transition focus:border-brand focus:bg-white"
             />
             <button
@@ -291,11 +364,14 @@ export default function Navbar({ logoUrl = "/brand/logo-128.png" }: { logoUrl?: 
             </button>
 
             <AnimatePresence>
-              {activeField === "mobile" && query.trim().length > 0 && (
+              {activeField === "mobile" && canSuggest && (
                 <SearchSuggestions
+                  listboxId={MOBILE_LISTBOX_ID}
                   loading={isAwaitingDebounce || suggestionsLoading}
                   results={suggestions}
                   query={query}
+                  activeIndex={activeIndex}
+                  onHighlight={setActiveIndex}
                   onSelect={closeSuggestions}
                 />
               )}
@@ -410,9 +486,12 @@ export default function Navbar({ logoUrl = "/brand/logo-128.png" }: { logoUrl?: 
 }
 
 interface SearchSuggestionsProps {
+  listboxId: string;
   loading: boolean;
   results: ProductSearchResult[];
   query: string;
+  activeIndex: number;
+  onHighlight: (index: number) => void;
   onSelect: () => void;
 }
 
@@ -420,9 +499,28 @@ interface SearchSuggestionsProps {
  * Autocomplete dropdown shared by the desktop and mobile search forms.
  * Anchored by the caller (each form wraps it in a `relative` container).
  */
-function SearchSuggestions({ loading, results, query, onSelect }: SearchSuggestionsProps) {
+function SearchSuggestions({
+  listboxId,
+  loading,
+  results,
+  query,
+  activeIndex,
+  onHighlight,
+  onSelect,
+}: SearchSuggestionsProps) {
+  // Keep the keyboard-highlighted row visible when arrowing past the edge of
+  // the scroll area. `block: "nearest"` scrolls only when it actually needs to.
+  useEffect(() => {
+    if (activeIndex < 0) return;
+    document
+      .getElementById(`${listboxId}-option-${activeIndex}`)
+      ?.scrollIntoView({ block: "nearest" });
+  }, [activeIndex, listboxId]);
+
   return (
     <motion.div
+      id={listboxId}
+      role="listbox"
       initial={{ opacity: 0, y: -6 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -6 }}
@@ -440,16 +538,23 @@ function SearchSuggestions({ loading, results, query, onSelect }: SearchSuggesti
           No products found for “{query.trim()}”
         </div>
       ) : (
-        results.map((product) => {
+        results.map((product, index) => {
           const thumbnail = product.images[0]?.url ?? "/placeholder-product.png";
+          const isActive = index === activeIndex;
 
           return (
             <Link
               key={product.id}
+              id={`${listboxId}-option-${index}`}
+              role="option"
+              aria-selected={isActive}
               href={`/product/${product.slug}`}
               onClick={onSelect}
+              onMouseEnter={() => onHighlight(index)}
               prefetch={false}
-              className="tap-shrink flex items-center gap-3 px-4 py-2 transition hover:bg-brand-50"
+              className={`tap-shrink flex items-center gap-3 px-4 py-2 transition ${
+                isActive ? "bg-brand-50" : "hover:bg-brand-50"
+              }`}
             >
               <span className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-gray-50">
                 <Image
