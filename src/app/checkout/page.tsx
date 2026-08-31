@@ -9,7 +9,8 @@ import { useSession } from "@/providers/SessionProvider";
 import { useCart } from "@/hooks/useCart";
 import { AddressData } from "@/types/order";
 import { formatCurrency } from "@/lib/utils/currency";
-import { getPrepaidAmount, PREPAID_DISCOUNT } from "@/lib/utils/discount";
+import { calculateOrderTotals } from "@/lib/utils/order-total";
+import { FREE_SHIPPING_THRESHOLD } from "@/lib/utils/shipping";
 import Loader from "@/components/ui/Loader";
 
 declare global {
@@ -411,8 +412,26 @@ export default function CheckoutPage() {
     0
   );
   const totalDiscount = mrpTotal - subtotal;
-  const prepaidAmount = getPrepaidAmount(subtotal);
-  const payableAmount = paymentMethod === "RAZORPAY" ? prepaidAmount : subtotal;
+
+  // Shipping is charged exactly as the cart page displayed it. Both payment
+  // options are priced up-front so each radio can show its own real total;
+  // `totals` is whichever one is currently selected.
+  const allItemsFreeShipping = items.every((item) => item.product.freeShipping);
+  const prepaidTotals = calculateOrderTotals({
+    subtotal,
+    allItemsFreeShipping,
+    isPrepaid: true,
+  });
+  const codTotals = calculateOrderTotals({
+    subtotal,
+    allItemsFreeShipping,
+    isPrepaid: false,
+  });
+  const totals = paymentMethod === "RAZORPAY" ? prepaidTotals : codTotals;
+  const payableAmount = totals.payable;
+  // Savings off MRP for the selected payment method. Shipping is a charge, not
+  // a discount, so it must not be netted into this figure.
+  const savings = totalDiscount + totals.prepaidDiscount;
   const selectedAddress = addresses.find((a) => a.id === selectedId) ?? null;
 
   return (
@@ -836,11 +855,26 @@ export default function CheckoutPage() {
                     <span>- {formatCurrency(totalDiscount)}</span>
                   </div>
                 )}
+                <div className="flex justify-between text-gray-600">
+                  <span>Shipping</span>
+                  {totals.shipping === 0 ? (
+                    <span className="font-medium text-success">FREE</span>
+                  ) : (
+                    <span>+ {formatCurrency(totals.shipping)}</span>
+                  )}
+                </div>
                 <div className="flex justify-between border-t pt-2 font-semibold text-gray-900">
                   <span>Order Total</span>
-                  <span>{formatCurrency(subtotal)}</span>
+                  <span>{formatCurrency(codTotals.payable)}</span>
                 </div>
               </div>
+
+              {totals.shipping > 0 && (
+                <p className="mt-3 text-xs text-gray-400">
+                  Add {formatCurrency(FREE_SHIPPING_THRESHOLD - subtotal)} more to
+                  your cart for free shipping.
+                </p>
+              )}
 
               {totalDiscount > 0 && (
                 <div className="mt-4 flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-sm font-medium text-green-700">
@@ -911,13 +945,13 @@ export default function CheckoutPage() {
                     onChange={() => setPaymentMethod("RAZORPAY")}
                   />
                   <div className="w-16 shrink-0">
-                    {prepaidAmount < subtotal && (
+                    {prepaidTotals.payable < codTotals.payable && (
                       <p className="text-xs text-gray-400 line-through">
-                        {formatCurrency(subtotal)}
+                        {formatCurrency(codTotals.payable)}
                       </p>
                     )}
                     <p className="font-semibold text-green-600">
-                      {formatCurrency(prepaidAmount)}
+                      {formatCurrency(prepaidTotals.payable)}
                     </p>
                   </div>
                   <div className="flex-1">
@@ -926,9 +960,9 @@ export default function CheckoutPage() {
                       UPI, Cards, Netbanking &amp; wallets via Razorpay
                     </p>
                   </div>
-                  {prepaidAmount < subtotal && (
+                  {prepaidTotals.prepaidDiscount > 0 && (
                     <span className="shrink-0 rounded bg-green-50 px-2 py-1 text-xs font-semibold text-green-700">
-                      Save {formatCurrency(PREPAID_DISCOUNT)}
+                      Save {formatCurrency(prepaidTotals.prepaidDiscount)}
                     </span>
                   )}
                 </label>
@@ -950,7 +984,7 @@ export default function CheckoutPage() {
                     disabled={!allProductsAllowCOD}
                   />
                   <span className="w-16 shrink-0 font-semibold text-gray-800">
-                    {formatCurrency(subtotal)}
+                    {formatCurrency(codTotals.payable)}
                   </span>
                   <div>
                     <p className="font-medium text-gray-800">
@@ -976,24 +1010,31 @@ export default function CheckoutPage() {
                   <span>Product Price</span>
                   <span>+ {formatCurrency(mrpTotal)}</span>
                 </div>
-                {mrpTotal - payableAmount > 0 && (
+                {savings > 0 && (
                   <div className="flex justify-between text-green-600">
                     <span>Total Discounts</span>
-                    <span>- {formatCurrency(mrpTotal - payableAmount)}</span>
+                    <span>- {formatCurrency(savings)}</span>
                   </div>
                 )}
+                <div className="flex justify-between text-gray-600">
+                  <span>Shipping</span>
+                  {totals.shipping === 0 ? (
+                    <span className="font-medium text-success">FREE</span>
+                  ) : (
+                    <span>+ {formatCurrency(totals.shipping)}</span>
+                  )}
+                </div>
                 <div className="flex justify-between border-t pt-2 font-semibold text-gray-900">
                   <span>Order Total</span>
                   <span>{formatCurrency(payableAmount)}</span>
                 </div>
               </div>
 
-              {mrpTotal - payableAmount > 0 && (
+              {savings > 0 && (
                 <div className="mt-4 flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-sm font-medium text-green-700">
                   <span>✅</span>
                   <span>
-                    Yay! Your total discount is{" "}
-                    {formatCurrency(mrpTotal - payableAmount)}
+                    Yay! Your total discount is {formatCurrency(savings)}
                   </span>
                 </div>
               )}

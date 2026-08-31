@@ -2,7 +2,7 @@ import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { notifyAdminsOfNewOrder } from "@/lib/notify";
-import { getPrepaidAmount } from "@/lib/utils/discount";
+import { calculateOrderTotals } from "@/lib/utils/order-total";
 
 interface RazorpayPaymentDetails {
   razorpayOrderId?: string;
@@ -44,7 +44,9 @@ function generateInvoiceNumber() {
   const now = new Date();
   const y = now.getFullYear();
   const rand = Math.floor(100000 + Math.random() * 900000);
-  return `BM-${y}-${rand}`;
+  // SHK = Shopka. Orders placed before the rename still carry the old "BM-"
+  // prefix; those are historical records and are left untouched.
+  return `SHK-${y}-${rand}`;
 }
 
 export class CheckoutService {
@@ -120,15 +122,24 @@ export class CheckoutService {
       };
     });
 
-    // No tax or shipping charge is added — customer pays the product subtotal,
-    // minus a flat extra discount when paying online (prepaid).
-    const shippingCharge = new Prisma.Decimal(0);
+    // Shipping/prepaid maths live in calculateOrderTotals() so the amount we
+    // charge here is identical to what the cart and checkout summaries showed
+    // and to the Razorpay order created in /api/payments/razorpay/create-order.
+    const totals = calculateOrderTotals({
+      subtotal: subtotal.toNumber(),
+      allItemsFreeShipping: cart.items.every((item) => item.product.freeShipping),
+      isPrepaid: paymentMethod === "RAZORPAY",
+    });
+
+    const shippingCharge = new Prisma.Decimal(totals.shipping);
     const taxTotal = new Prisma.Decimal(0);
-    const totalAmount =
-      paymentMethod === "RAZORPAY"
-        ? new Prisma.Decimal(getPrepaidAmount(subtotal.toNumber()))
-        : subtotal;
-    const discountAmount = mrpTotal.sub(totalAmount);
+    const totalAmount = new Prisma.Decimal(totals.payable);
+    // Savings the customer made off MRP — product-level discount plus the
+    // prepaid discount. Shipping is a charge, not a discount, so it stays out.
+    const discountAmount = mrpTotal
+      .sub(subtotal)
+      .add(totals.prepaidDiscount);
+
 
     const order = await prisma.$transaction(async (tx) => {
       const created = await tx.order.create({

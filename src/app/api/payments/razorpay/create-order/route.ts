@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { getRazorpayInstance } from "@/lib/razorpay";
-import { getPrepaidAmount } from "@/lib/utils/discount";
+import { calculateOrderTotals } from "@/lib/utils/order-total";
 
 /**
  * Creates a Razorpay order sized to the user's current cart total, so the
@@ -43,10 +43,14 @@ export async function POST() {
       subtotal = subtotal.add(lineTotal);
     }
 
-    // No tax or shipping charge is added — customer pays the product subtotal,
-    // minus the flat prepaid (online payment) discount.
-    const totalAmount = getPrepaidAmount(subtotal.toNumber());
-    const amountInPaise = Math.round(totalAmount * 100);
+    // Mirrors checkout.service.placeOrder() exactly — same helper, same inputs —
+    // so the amount Razorpay collects always equals the order we then persist.
+    const totals = calculateOrderTotals({
+      subtotal: subtotal.toNumber(),
+      allItemsFreeShipping: cart.items.every((item) => item.product.freeShipping),
+      isPrepaid: true,
+    });
+    const amountInPaise = Math.round(totals.payable * 100);
 
     const razorpay = getRazorpayInstance();
 
