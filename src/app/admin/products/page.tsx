@@ -14,6 +14,8 @@ interface AdminProduct {
   sellingPrice: number;
   mrp: number;
   stock: number;
+  /** Decimal over the wire: a string. 0 = free delivery. */
+  shippingCharge: number | string;
   isPublished: boolean;
   images: { url: string; isThumbnail?: boolean }[];
   category: { id: string; name: string };
@@ -31,6 +33,106 @@ interface CategoryOption {
   id: string;
   name: string;
   subCategories: { id: string; name: string }[];
+}
+
+interface DeliveryChargeCellProps {
+  productId: string;
+  value: number | string;
+  /** Applies a charge to the parent's row state — used for both the optimistic
+   *  write and the revert if the request fails. */
+  onApply: (productId: string, charge: number) => void;
+}
+
+/**
+ * Inline rupee delivery charge. Saves on blur or Enter through the same
+ * `PATCH /api/products/[id]` the edit form uses, so there's one code path and one
+ * set of validation rules. 0 means free delivery.
+ */
+function DeliveryChargeCell({
+  productId,
+  value,
+  onApply,
+}: DeliveryChargeCellProps) {
+  const [draft, setDraft] = useState(String(Number(value) || 0));
+  const [isSaving, setIsSaving] = useState(false);
+
+  async function save() {
+    const previous = Number(value) || 0;
+    const charge = Number(draft);
+
+    if (draft.trim() === "" || !Number.isFinite(charge) || charge < 0) {
+      toast.error("Delivery charge must be 0 or more.");
+      setDraft(String(previous));
+      return;
+    }
+
+    // Normalises "50.00" back to "50" as well as short-circuiting a no-op save.
+    if (charge === previous) {
+      setDraft(String(previous));
+      return;
+    }
+
+    setIsSaving(true);
+    setDraft(String(charge));
+    onApply(productId, charge);
+
+    try {
+      const res = await fetch(`/api/products/${productId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shippingCharge: charge }),
+      });
+      const json = await res.json();
+
+      if (!json.success) {
+        toast.error(json.message ?? "Unable to save delivery charge.");
+        onApply(productId, previous);
+        setDraft(String(previous));
+        return;
+      }
+
+      toast.success(
+        charge === 0
+          ? "Delivery set to free."
+          : `Delivery charge set to ₹${charge}.`
+      );
+    } catch {
+      toast.error("Unable to save delivery charge.");
+      onApply(productId, previous);
+      setDraft(String(previous));
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-gray-400">₹</span>
+      <input
+        type="number"
+        min={0}
+        step="0.01"
+        value={draft}
+        disabled={isSaving}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={save}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            e.currentTarget.blur();
+          } else if (e.key === "Escape") {
+            setDraft(String(Number(value) || 0));
+            e.currentTarget.blur();
+          }
+        }}
+        aria-label={`Delivery charge in rupees`}
+        className="w-20 rounded-lg border px-2 py-1 text-sm outline-none focus:border-brand disabled:opacity-50"
+      />
+      {Number(value) === 0 && !isSaving && (
+        <span className="text-xs font-medium text-success">Free</span>
+      )}
+    </div>
+  );
 }
 
 export default function AdminProductsPage() {
@@ -99,6 +201,14 @@ export default function AdminProductsPage() {
       loadCategories();
     }
   }, [isAuthorized, loadProducts, loadCategories]);
+
+  function applyShippingCharge(productId: string, charge: number) {
+    setProducts((prev) =>
+      prev.map((p) =>
+        p.id === productId ? { ...p, shippingCharge: charge } : p
+      )
+    );
+  }
 
   function toggleSelect(id: string) {
     const next = new Set(selected);
@@ -279,6 +389,7 @@ export default function AdminProductsPage() {
                     <th className="p-3">Product</th>
                     <th className="p-3">Category</th>
                     <th className="p-3">Price</th>
+                    <th className="p-3">Delivery</th>
                     <th className="p-3">Stock</th>
                     <th className="p-3">Status</th>
                     <th className="p-3 text-right">Actions</th>
@@ -336,6 +447,13 @@ export default function AdminProductsPage() {
                           <span className="text-gray-400 line-through">
                             ₹{p.mrp}
                           </span>
+                        </td>
+                        <td className="p-3">
+                          <DeliveryChargeCell
+                            productId={p.id}
+                            value={p.shippingCharge}
+                            onApply={applyShippingCharge}
+                          />
                         </td>
                         <td className="p-3">{p.stock}</td>
                         <td className="p-3">

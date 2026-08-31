@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import productService from "@/features/products/service/product.service";
 import { serializeData } from "@/lib/serialize";
+import { formatCurrency } from "@/lib/utils/currency";
 import ProductImageGallery from "@/components/product/ProductImageGallery";
 import ProductPrice from "@/components/product/ProductPrice";
 import ProductRating from "@/components/product/ProductRating";
@@ -180,9 +181,13 @@ export default async function ProductPage({ params }: ProductPageProps) {
               />
             </div>
 
-            {product.freeShipping && (
+            {Number(product.shippingCharge) === 0 ? (
               <p className="mt-3 text-xs font-semibold text-success">
-                Free Shipping on this item
+                Free Delivery on this item
+              </p>
+            ) : (
+              <p className="mt-3 text-xs font-semibold text-gray-600">
+                {formatCurrency(product.shippingCharge)} delivery charge
               </p>
             )}
 

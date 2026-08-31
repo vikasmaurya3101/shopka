@@ -103,8 +103,10 @@ export const UpdateProductDto = z.object({
     .boolean()
     .optional(),
 
-  freeShipping: z
-    .boolean()
+  /** Rupee delivery charge for this product. 0 = free delivery. */
+  shippingCharge: z.coerce
+    .number()
+    .min(0)
     .optional(),
 
   codAllowed: z

@@ -175,7 +175,11 @@ model Product {
   isBestSeller     Boolean            @default(false)
   isNewArrival     Boolean            @default(false)
   isPublished      Boolean            @default(false)
+  /// @deprecated superseded by shippingCharge; no longer read anywhere.
   freeShipping     Boolean            @default(false)
+  /// Rupee delivery charge for this product. 0 = free delivery (the default).
+  /// Counted once per product in a cart, regardless of quantity.
+  shippingCharge   Decimal            @default(0) @db.Decimal(10, 2)
   codAllowed       Boolean            @default(true)
   estimatedDeliveryDays Int           @default(5)
   searchKeywords   String?

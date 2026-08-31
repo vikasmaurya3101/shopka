@@ -7,7 +7,7 @@ import { Minus, Plus, Tag, Trash2, X } from "lucide-react";
 import { useCart } from "@/hooks/useCart";
 import { useSession } from "@/providers/SessionProvider";
 import { formatCurrency } from "@/lib/utils/currency";
-import { calculateShipping, FREE_SHIPPING_THRESHOLD } from "@/lib/utils/shipping";
+import { calculateShipping, toShippableLines } from "@/lib/utils/shipping";
 import Loader from "@/components/ui/Loader";
 
 interface AppliedCoupon {
@@ -61,9 +61,10 @@ export default function CartPage() {
     0
   );
 
-  const allFreeShipping = items.every((item) => item.product.freeShipping);
+  // Delivery is the sum of the per-product charges (once each, whatever the
+  // quantity). A FREE_SHIPPING coupon overrides the lot.
   const shipping =
-    coupon?.type === "FREE_SHIPPING" ? 0 : calculateShipping(subtotal, allFreeShipping);
+    coupon?.type === "FREE_SHIPPING" ? 0 : calculateShipping(toShippableLines(items));
   const couponDiscount = coupon?.discountAmount ?? 0;
   const total = Math.max(0, subtotal + shipping - couponDiscount);
 
@@ -261,12 +262,6 @@ export default function CartPage() {
                   <span>{formatCurrency(total)}</span>
                 </div>
               </div>
-
-              {shipping > 0 && (
-                <p className="mt-3 text-xs text-gray-400">
-                  Add {formatCurrency(FREE_SHIPPING_THRESHOLD - subtotal)} more for free shipping.
-                </p>
-              )}
 
               <Link
                 href={isAuthenticated ? "/checkout" : "/login?redirect=/checkout"}

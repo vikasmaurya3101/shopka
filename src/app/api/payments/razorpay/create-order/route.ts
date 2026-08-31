@@ -4,6 +4,7 @@ import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { getRazorpayInstance } from "@/lib/razorpay";
 import { calculateOrderTotals } from "@/lib/utils/order-total";
+import { toShippableLines } from "@/lib/utils/shipping";
 
 /**
  * Creates a Razorpay order sized to the user's current cart total, so the
@@ -47,7 +48,7 @@ export async function POST() {
     // so the amount Razorpay collects always equals the order we then persist.
     const totals = calculateOrderTotals({
       subtotal: subtotal.toNumber(),
-      allItemsFreeShipping: cart.items.every((item) => item.product.freeShipping),
+      lines: toShippableLines(cart.items),
       isPrepaid: true,
     });
     const amountInPaise = Math.round(totals.payable * 100);

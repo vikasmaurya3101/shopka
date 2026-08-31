@@ -96,6 +96,8 @@ export default function AdminOrderDetailPage() {
   const [shipmentStatus, setShipmentStatus] = useState("");
   const [trackingNumber, setTrackingNumber] = useState("");
   const [trackingUrl, setTrackingUrl] = useState("");
+  const [shippingDraft, setShippingDraft] = useState("0");
+  const [isSavingShipping, setIsSavingShipping] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   const load = useCallback(async () => {
@@ -109,6 +111,7 @@ export default function AdminOrderDetailPage() {
         setShipmentStatus(json.data.shipmentStatus);
         setTrackingNumber(json.data.trackingNumber ?? "");
         setTrackingUrl(json.data.trackingUrl ?? "");
+        setShippingDraft(String(Number(json.data.shippingCharge) || 0));
       } else {
         toast.error(json.message ?? "Unable to load order.");
       }
@@ -143,6 +146,43 @@ export default function AdminOrderDetailPage() {
       toast.success("Order updated.");
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  /**
+   * Per-order delivery override. The API adjusts `totalAmount` by the delta and
+   * refuses outright once the order is paid, so this only ever appears on
+   * COD / unpaid orders.
+   */
+  async function handleSaveShipping() {
+    const charge = Number(shippingDraft);
+
+    if (shippingDraft.trim() === "" || !Number.isFinite(charge) || charge < 0) {
+      toast.error("Delivery charge must be 0 or more.");
+      return;
+    }
+
+    setIsSavingShipping(true);
+    try {
+      const res = await fetch(`/api/admin/orders/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shippingCharge: charge }),
+      });
+      const json = await res.json();
+
+      if (!json.success) {
+        toast.error(json.message ?? "Unable to update delivery charge.");
+        return;
+      }
+
+      setOrder(json.data);
+      setShippingDraft(String(Number(json.data.shippingCharge) || 0));
+      toast.success(
+        charge === 0 ? "Delivery set to free." : "Delivery charge updated."
+      );
+    } finally {
+      setIsSavingShipping(false);
     }
   }
 
@@ -218,6 +258,11 @@ export default function AdminOrderDetailPage() {
       </main>
     );
   }
+
+  // The money is already collected, so the delivery charge is frozen — changing
+  // the total now would make the record disagree with what the gateway captured.
+  const isPaid =
+    order.paymentStatus === "PAID" || order.payment?.status === "PAID";
 
   return (
     <main className="min-h-screen bg-gray-50 p-4 sm:p-6">
@@ -377,9 +422,52 @@ export default function AdminOrderDetailPage() {
               <span>Discount</span>
               <span>-{formatCurrency(order.discountAmount)}</span>
             </div>
-            <div className="flex justify-between text-gray-500">
+            <div className="flex items-center justify-between gap-2 text-gray-500">
               <span>Shipping</span>
-              <span>{formatCurrency(order.shippingCharge)}</span>
+              {isPaid ? (
+                <span
+                  title="Locked — this order is already paid."
+                  className={
+                    Number(order.shippingCharge) === 0
+                      ? "font-medium text-success"
+                      : undefined
+                  }
+                >
+                  {Number(order.shippingCharge) === 0
+                    ? "FREE"
+                    : formatCurrency(order.shippingCharge)}
+                </span>
+              ) : (
+                <span className="flex items-center gap-1.5">
+                  <span className="text-gray-400">₹</span>
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={shippingDraft}
+                    disabled={isSavingShipping}
+                    onChange={(e) => setShippingDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleSaveShipping();
+                      }
+                    }}
+                    aria-label="Delivery charge in rupees"
+                    className="w-20 rounded-lg border px-2 py-1 text-right text-sm outline-none focus:border-brand disabled:opacity-50"
+                  />
+                  <button
+                    onClick={handleSaveShipping}
+                    disabled={
+                      isSavingShipping ||
+                      Number(shippingDraft) === Number(order.shippingCharge)
+                    }
+                    className="rounded-lg border px-2 py-1 text-xs font-semibold text-brand disabled:opacity-40"
+                  >
+                    {isSavingShipping ? "Saving…" : "Save"}
+                  </button>
+                </span>
+              )}
             </div>
             <div className="flex justify-between font-semibold text-gray-800">
               <span>Total</span>

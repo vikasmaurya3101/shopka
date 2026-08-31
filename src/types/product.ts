@@ -54,7 +54,8 @@ export interface ProductCardData {
   isTrending: boolean;
   isBestSeller: boolean;
   isNewArrival: boolean;
-  freeShipping: boolean;
+  /** Per-product delivery charge; 0 means free delivery (the default). */
+  shippingCharge: number | string;
   codAllowed: boolean;
   avgRating: number | string;
   totalReviews: number;

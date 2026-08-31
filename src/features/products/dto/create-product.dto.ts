@@ -91,9 +91,22 @@ export const CreateProductDto = z.object({
     .boolean()
     .default(false),
 
-  freeShipping: z
+  /** Rupee delivery charge for this product. 0 = free delivery. */
+  shippingCharge: z.coerce
+    .number()
+    .min(0)
+    .default(0),
+
+  codAllowed: z
     .boolean()
-    .default(false),
+    .default(true),
+
+  estimatedDeliveryDays: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(90)
+    .default(5),
 
   seoTitle: z
     .string()

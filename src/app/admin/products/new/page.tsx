@@ -58,6 +58,7 @@ export default function NewProductPage() {
     stock: "10",
     imageUrl: "",
     estimatedDeliveryDays: "5",
+    shippingCharge: "0",
     isPublished: false,
   });
 
@@ -211,6 +212,7 @@ export default function NewProductPage() {
           sellingPrice: Number(form.sellingPrice),
           stock: Number(form.stock),
           estimatedDeliveryDays: Number(form.estimatedDeliveryDays) || 5,
+          shippingCharge: Number(form.shippingCharge) || 0,
           isPublished: form.isPublished,
           images: form.imageUrl
             ? [{ url: form.imageUrl, isThumbnail: true, displayOrder: 0 }]
@@ -493,6 +495,24 @@ export default function NewProductPage() {
             />
             <p className="mt-1 text-xs text-gray-400">
               Days from order placement to delivery. Shown to customers on the order page.
+            </p>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              Delivery Charge (₹)
+            </label>
+            <input
+              type="number"
+              min={0}
+              step="0.01"
+              value={form.shippingCharge}
+              onChange={(e) => updateField("shippingCharge", e.target.value)}
+              className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-brand"
+            />
+            <p className="mt-1 text-xs text-gray-400">
+              Leave 0 for free delivery. Charged once per product in a cart,
+              however many units the customer orders.
             </p>
           </div>
 

@@ -10,7 +10,7 @@ import { useCart } from "@/hooks/useCart";
 import { AddressData } from "@/types/order";
 import { formatCurrency } from "@/lib/utils/currency";
 import { calculateOrderTotals } from "@/lib/utils/order-total";
-import { FREE_SHIPPING_THRESHOLD } from "@/lib/utils/shipping";
+import { toShippableLines } from "@/lib/utils/shipping";
 import Loader from "@/components/ui/Loader";
 
 declare global {
@@ -416,15 +416,15 @@ export default function CheckoutPage() {
   // Shipping is charged exactly as the cart page displayed it. Both payment
   // options are priced up-front so each radio can show its own real total;
   // `totals` is whichever one is currently selected.
-  const allItemsFreeShipping = items.every((item) => item.product.freeShipping);
+  const lines = toShippableLines(items);
   const prepaidTotals = calculateOrderTotals({
     subtotal,
-    allItemsFreeShipping,
+    lines,
     isPrepaid: true,
   });
   const codTotals = calculateOrderTotals({
     subtotal,
-    allItemsFreeShipping,
+    lines,
     isPrepaid: false,
   });
   const totals = paymentMethod === "RAZORPAY" ? prepaidTotals : codTotals;
@@ -868,13 +868,6 @@ export default function CheckoutPage() {
                   <span>{formatCurrency(codTotals.payable)}</span>
                 </div>
               </div>
-
-              {totals.shipping > 0 && (
-                <p className="mt-3 text-xs text-gray-400">
-                  Add {formatCurrency(FREE_SHIPPING_THRESHOLD - subtotal)} more to
-                  your cart for free shipping.
-                </p>
-              )}
 
               {totalDiscount > 0 && (
                 <div className="mt-4 flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-sm font-medium text-green-700">

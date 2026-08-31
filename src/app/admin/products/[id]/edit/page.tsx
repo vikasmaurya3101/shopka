@@ -49,6 +49,7 @@ export default function EditProductPage() {
     sellingPrice: "",
     stock: "",
     estimatedDeliveryDays: "5",
+    shippingCharge: "0",
     imageUrl: "",
     isPublished: false,
     codAllowed: true,
@@ -80,6 +81,7 @@ export default function EditProductPage() {
           sellingPrice: String(p.sellingPrice ?? ""),
           stock: String(p.stock ?? "0"),
           estimatedDeliveryDays: String(p.estimatedDeliveryDays ?? 5),
+          shippingCharge: String(p.shippingCharge ?? 0),
           imageUrl: thumb,
           isPublished: !!p.isPublished,
           codAllowed: p.codAllowed !== false,
@@ -172,6 +174,7 @@ export default function EditProductPage() {
           sellingPrice: Number(form.sellingPrice),
           stock: Number(form.stock),
           estimatedDeliveryDays: Number(form.estimatedDeliveryDays) || 5,
+          shippingCharge: Number(form.shippingCharge) || 0,
           isPublished: form.isPublished,
           codAllowed: form.codAllowed,
           images: form.imageUrl
@@ -343,6 +346,33 @@ export default function EditProductPage() {
               Number of days from order placement to estimated delivery. Shown to customers on order page.
             </p>
           </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              Delivery Charge (₹)
+            </label>
+            <input
+              type="number"
+              min={0}
+              step="0.01"
+              value={form.shippingCharge}
+              onChange={(e) => updateField("shippingCharge", e.target.value)}
+              className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-brand"
+            />
+            <p className="mt-1 text-xs text-gray-400">
+              Leave 0 for free delivery. Charged once per product in a cart,
+              however many units the customer orders.
+            </p>
+          </div>
+
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              checked={form.codAllowed}
+              onChange={(e) => updateField("codAllowed", e.target.checked)}
+            />
+            Cash on Delivery allowed
+          </label>
 
           <label className="flex items-center gap-2 text-sm text-gray-700">
             <input

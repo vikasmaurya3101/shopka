@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { notifyAdminsOfNewOrder } from "@/lib/notify";
 import { calculateOrderTotals } from "@/lib/utils/order-total";
+import { toShippableLines } from "@/lib/utils/shipping";
 
 interface RazorpayPaymentDetails {
   razorpayOrderId?: string;
@@ -127,7 +128,7 @@ export class CheckoutService {
     // and to the Razorpay order created in /api/payments/razorpay/create-order.
     const totals = calculateOrderTotals({
       subtotal: subtotal.toNumber(),
-      allItemsFreeShipping: cart.items.every((item) => item.product.freeShipping),
+      lines: toShippableLines(cart.items),
       isPrepaid: paymentMethod === "RAZORPAY",
     });
 

@@ -1,11 +1,11 @@
 import { PREPAID_DISCOUNT } from "./discount";
-import { calculateShipping } from "./shipping";
+import { calculateShipping, ShippableLine } from "./shipping";
 
 export interface OrderTotalsInput {
   /** Sum of sellingPrice × quantity across all cart items. */
   subtotal: number;
-  /** True only when every item in the cart is flagged freeShipping. */
-  allItemsFreeShipping: boolean;
+  /** Cart lines, for the per-product delivery charges. */
+  lines: ShippableLine[];
   /** True when paying online (Razorpay), which earns the flat prepaid discount. */
   isPrepaid: boolean;
 }
@@ -28,10 +28,10 @@ export interface OrderTotals {
  */
 export function calculateOrderTotals({
   subtotal,
-  allItemsFreeShipping,
+  lines,
   isPrepaid,
 }: OrderTotalsInput): OrderTotals {
-  const shipping = calculateShipping(subtotal, allItemsFreeShipping);
+  const shipping = calculateShipping(lines);
   const prepaidDiscount = isPrepaid
     ? Math.min(PREPAID_DISCOUNT, subtotal + shipping)
     : 0;

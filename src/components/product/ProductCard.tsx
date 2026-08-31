@@ -91,9 +91,9 @@ export default function ProductCard({ product }: ProductCardProps) {
             size="sm"
           />
 
-          {product.freeShipping && (
+          {Number(product.shippingCharge) === 0 && (
             <span className="text-xs font-medium text-success">
-              Free Shipping
+              Free Delivery
             </span>
           )}
         </div>

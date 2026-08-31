@@ -170,8 +170,14 @@ class ProductService {
         isPublished:
           dto.isPublished,
 
-        freeShipping:
-          dto.freeShipping,
+        shippingCharge:
+          dto.shippingCharge,
+
+        codAllowed:
+          dto.codAllowed,
+
+        estimatedDeliveryDays:
+          dto.estimatedDeliveryDays,
 
         seoTitle:
           dto.seoTitle,
@@ -333,9 +339,19 @@ class ProductService {
       data.isPublished =
         dto.isPublished;
 
-    if (dto.freeShipping !== undefined)
-      data.freeShipping =
-        dto.freeShipping;
+    if (dto.shippingCharge !== undefined)
+      data.shippingCharge =
+        dto.shippingCharge;
+
+    if (dto.codAllowed !== undefined)
+      data.codAllowed =
+        dto.codAllowed;
+
+    if (
+      dto.estimatedDeliveryDays !== undefined
+    )
+      data.estimatedDeliveryDays =
+        dto.estimatedDeliveryDays;
 
     if (
       dto.searchKeywords !== undefined
