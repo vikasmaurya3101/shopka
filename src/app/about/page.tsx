@@ -16,7 +16,7 @@ export default function AboutPage() {
         <p className="mt-6 text-gray-600">
           Shopka was started with one simple idea:{" "}
           <span className="font-semibold text-brand">
-            Smart Shopping Starts Here
+            All Trending Products here
           </span>{" "}
           — everyday products at prices that actually make sense, without
           compromising on quality.

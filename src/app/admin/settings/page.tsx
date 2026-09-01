@@ -135,7 +135,7 @@ export default function AdminSettingsPage() {
             <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">Hero Banner</h2>
             <div className="space-y-4">
               {field("hero_badge",   "Badge text (top label)",   "UP TO 80% OFF · TODAY ONLY")}
-              {field("hero_title",   "Headline",                  "Smart Shopping Starts Here.")}
+              {field("hero_title",   "Headline",                  "All Trending Products here.")}
               {field("hero_subtitle","Subheadline",               "Unbeatable prices, handpicked quality, and fast delivery…")}
               {field("hero_cta",     "CTA Button label",          "Shop Now")}
             </div>

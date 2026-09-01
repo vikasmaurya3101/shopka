@@ -53,7 +53,7 @@ export default async function Footer() {
         <div>
           <span className="text-2xl font-extrabold text-white">Shopka</span>
           <p className="mt-2 text-sm leading-relaxed">
-            Smart Shopping Starts Here — unbeatable prices on quality products,
+            All Trending Products here — unbeatable prices on quality products,
             delivered fast across India.
           </p>
           <div className="mt-5 flex items-center gap-4">

@@ -30,7 +30,7 @@ interface HeroProps {
 
 export default function Hero({
   badge    = "UP TO 80% OFF · TODAY ONLY",
-  title    = "Smart Shopping\nStarts Here.",
+  title    = "All Trending\nProducts here.",
   subtitle = "Unbeatable prices, handpicked quality, and fast delivery — straight to your door, every single day.",
   cta      = "Shop Now",
   logoUrl  = "/brand/logo-128.png",

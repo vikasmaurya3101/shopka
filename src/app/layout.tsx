@@ -39,7 +39,7 @@ export const metadata: Metadata = {
     template: "%s | Shopka",
   },
   description:
-    "Smart Shopping Starts Here — India's trusted online shopping destination for best prices, fast delivery & 24x7 support.",
+    "All Trending Products here — India's trusted online shopping destination for best prices, fast delivery & 24x7 support.",
   icons: {
     icon: [
       { url: "/brand/logo-32.png", sizes: "32x32", type: "image/png" },
