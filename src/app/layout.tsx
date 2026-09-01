@@ -35,7 +35,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL("https://shopka.in"),
   title: {
-    default: "Shopka — Smart Shopping Starts Here",
+    default: "Shopka — All Trending Products here",
     template: "%s | Shopka",
   },
   description:
@@ -49,7 +49,7 @@ export const metadata: Metadata = {
   },
   manifest: "/site.webmanifest",
   openGraph: {
-    title: "Shopka — Smart Shopping Starts Here",
+    title: "Shopka — All Trending Products here",
     description:
       "India's trusted online shopping destination for best prices, fast delivery & 24x7 support.",
     images: [{ url: "/brand/og-image.png", width: 1200, height: 630 }],
