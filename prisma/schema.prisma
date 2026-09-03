@@ -23,6 +23,13 @@ model User {
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
   firebaseUid      String?           @unique
+  /// Explicit opt-in to WhatsApp order/support messages, captured via an
+  /// unchecked-by-default checkbox at signup and checkout. Required evidence of
+  /// consent under the WhatsApp Business Terms and Meta Commerce Policy.
+  whatsappConsent  Boolean           @default(false)
+  /// When consent was last granted (set) or withdrawn (cleared to null), so the
+  /// opt-in is auditable rather than just a bare boolean.
+  whatsappConsentAt DateTime?
   addresses        Address[]
   cart             Cart?
   notifications    Notification[]

@@ -125,7 +125,10 @@ export class AuthRepository {
     firstName: string;
     lastName?: string;
     email?: string;
+    whatsappConsent?: boolean;
   }) {
+    const consented = data.whatsappConsent === true;
+
     return prisma.user.create({
       data: {
         phone: data.phone,
@@ -133,7 +136,27 @@ export class AuthRepository {
         lastName: data.lastName ?? null,
         email: data.email && data.email.trim() ? data.email.trim() : null,
         phoneVerified: true,
+        // Opt-in is explicit and optional, so an absent/false flag stays false
+        // and leaves the timestamp null rather than recording a consent event.
+        whatsappConsent: consented,
+        whatsappConsentAt: consented ? new Date() : null,
       },
+    });
+  }
+
+  /**
+   * Records an explicit WhatsApp opt-in or opt-out. Granting stamps the moment
+   * consent was given; withdrawing clears it, so the column never claims a
+   * consent that is no longer held.
+   */
+  async setWhatsappConsent(userId: string, consent: boolean) {
+    return prisma.user.update({
+      where: { id: userId },
+      data: {
+        whatsappConsent: consent,
+        whatsappConsentAt: consent ? new Date() : null,
+      },
+      select: { id: true, whatsappConsent: true, whatsappConsentAt: true },
     });
   }
 

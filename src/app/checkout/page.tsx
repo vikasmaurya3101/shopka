@@ -12,6 +12,7 @@ import { formatCurrency } from "@/lib/utils/currency";
 import { calculateOrderTotals } from "@/lib/utils/order-total";
 import { toShippableLines } from "@/lib/utils/shipping";
 import Loader from "@/components/ui/Loader";
+import WhatsappConsentCheckbox from "@/components/shared/WhatsappConsentCheckbox";
 
 declare global {
   interface Window {
@@ -68,6 +69,36 @@ export default function CheckoutPage() {
   );
   const [qtyDraft, setQtyDraft] = useState(1);
   const [isUpdatingQty, setIsUpdatingQty] = useState(false);
+
+  // Explicit WhatsApp opt-in. Starts unchecked and is never required to place an
+  // order; each toggle is persisted against the profile so the consent record
+  // survives even if the order is abandoned.
+  const [whatsappConsent, setWhatsappConsent] = useState(false);
+  const [isSavingConsent, setIsSavingConsent] = useState(false);
+
+  async function handleConsentChange(next: boolean) {
+    setWhatsappConsent(next);
+    setIsSavingConsent(true);
+
+    try {
+      const res = await fetch("/api/auth/whatsapp-consent", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ consent: next }),
+      });
+      const json = await res.json().catch(() => null);
+
+      if (!res.ok || !json?.success) {
+        setWhatsappConsent(!next);
+        toast.error(json?.message ?? "Couldn't save your WhatsApp preference.");
+      }
+    } catch {
+      setWhatsappConsent(!next);
+      toast.error("Couldn't save your WhatsApp preference.");
+    } finally {
+      setIsSavingConsent(false);
+    }
+  }
 
   const [form, setForm] = useState({
     fullName: "",
@@ -1031,6 +1062,14 @@ export default function CheckoutPage() {
                   </span>
                 </div>
               )}
+
+              <WhatsappConsentCheckbox
+                id="checkout-whatsapp-consent"
+                checked={whatsappConsent}
+                onChange={handleConsentChange}
+                disabled={isSavingConsent}
+                className="mt-5"
+              />
 
               <button
                 onClick={handlePlaceOrder}

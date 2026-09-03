@@ -70,13 +70,6 @@ export default function ReturnsPage() {
             </p>
           </section>
         </div>
-
-        <p className="mt-8 text-xs text-gray-400">
-          This is a general policy template — have it reviewed against
-          India&apos;s Consumer Protection (E-Commerce) Rules, 2020 before
-          launch, and adjust the return window/exclusions to match what you
-          can actually support.
-        </p>
       </div>
     </main>
   );

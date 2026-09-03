@@ -133,6 +133,8 @@ export function useAuth() {
       firstName: string;
       lastName?: string;
       email?: string;
+      /** Explicit WhatsApp opt-in from the signup checkbox. Optional. */
+      whatsappConsent?: boolean;
     }) => {
       setIsSubmitting(true);
       setError(null);

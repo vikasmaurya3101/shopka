@@ -8,6 +8,7 @@ import { Mail, MessageCircle, ShieldCheck } from "lucide-react";
 import { useAuth, type OtpChannel } from "@/hooks/useAuth";
 import Logo from "@/components/shared/Logo";
 import OtpInput from "@/components/auth/OtpInput";
+import WhatsappConsentCheckbox from "@/components/shared/WhatsappConsentCheckbox";
 
 type Step = "phone" | "otp" | "profile";
 
@@ -32,6 +33,7 @@ export default function LoginForm({ logoUrl }: { logoUrl: string }) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
+  const [whatsappConsent, setWhatsappConsent] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
   // Delivery-channel state for the WhatsApp-first, SMS-fallback OTP flow.
@@ -138,6 +140,7 @@ export default function LoginForm({ logoUrl }: { logoUrl: string }) {
       firstName,
       lastName: lastName || undefined,
       email: email || undefined,
+      whatsappConsent,
     });
 
     if (result.success) {
@@ -376,6 +379,13 @@ export default function LoginForm({ logoUrl }: { logoUrl: string }) {
                   For order receipts and account recovery.
                 </p>
               </div>
+
+              <WhatsappConsentCheckbox
+                id="signup-whatsapp-consent"
+                checked={whatsappConsent}
+                onChange={setWhatsappConsent}
+                disabled={isSubmitting}
+              />
 
               <button
                 type="submit"

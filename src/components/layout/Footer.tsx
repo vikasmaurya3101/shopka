@@ -143,8 +143,20 @@ export default async function Footer() {
       </div>
 
       <div className="border-t border-gray-800 py-5 text-center text-xs text-gray-600">
-        © {new Date().getFullYear()} Shopka. All Rights Reserved. &nbsp;·&nbsp;
-        Made with ❤️ in India
+        <p>
+          © {new Date().getFullYear()} Shopka. All Rights Reserved. &nbsp;·&nbsp;
+          Made with ❤️ in India
+        </p>
+        <p className="mt-1.5 text-gray-500">
+          Operated by Vikas Maurya |{" "}
+          <a
+            href="mailto:supportshopka@gmail.com"
+            className="hover:text-gray-300 hover:underline"
+          >
+            supportshopka@gmail.com
+          </a>{" "}
+          | India
+        </p>
       </div>
     </footer>
   );

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
-  description: "How Shopka collects, uses, and protects your personal information.",
+  description: "How Shopka collects, uses, shares, and protects your personal information.",
 };
 
 export default function PrivacyPage() {
@@ -14,12 +14,7 @@ export default function PrivacyPage() {
         </h1>
 
         <p className="mt-2 text-xs text-gray-400">
-          Last updated:{" "}
-          {new Date().toLocaleDateString("en-IN", {
-            day: "numeric",
-            month: "long",
-            year: "numeric",
-          })}
+          Last updated: 1 September 2026
         </p>
 
         <div className="mt-6 space-y-6 text-sm leading-relaxed text-gray-600">
@@ -30,9 +25,8 @@ export default function PrivacyPage() {
             <p>
               To create an account and process orders, we collect your mobile
               number, name, email (optional), delivery addresses, and order
-              history. We also collect basic usage data (pages viewed, items
-              wishlisted/carted) to improve recommendations and site
-              performance.
+              history. We also collect basic usage data to improve our
+              services.
             </p>
           </section>
 
@@ -40,24 +34,40 @@ export default function PrivacyPage() {
             <h2 className="mb-2 text-base font-semibold text-gray-800">
               2. How We Use Your Information
             </h2>
-            <p>
-              We use your information to verify your identity (via OTP),
-              fulfil and deliver orders, send order/account updates, provide
-              customer support, and improve our products and services. We do
-              not sell your personal information to third parties.
+            <p>We use your information to:</p>
+            <ul className="mt-2 list-disc space-y-1 pl-5">
+              <li>Verify your identity via OTP</li>
+              <li>Fulfil and deliver your orders</li>
+              <li>Send order confirmations and delivery updates</li>
+              <li>Provide customer support</li>
+              <li>Improve our platform and services</li>
+            </ul>
+            <p className="mt-2">
+              We do not sell your personal information to any third party.
             </p>
           </section>
 
           <section>
             <h2 className="mb-2 text-base font-semibold text-gray-800">
-              3. OTP Verification &amp; Messaging
+              3. WhatsApp &amp; SMS Communication
             </h2>
             <p>
-              We verify your mobile number using a one-time password (OTP)
-              sent via WhatsApp or SMS through trusted providers (currently
-              AiSensy for WhatsApp and Message Central for SMS). These
-              providers process your number solely to deliver the OTP and do
-              not use it for marketing on our behalf.
+              We use WhatsApp and SMS to send you OTP verifications and order
+              updates. By providing your mobile number and giving explicit
+              consent on our platform, you agree to receive these
+              communications. You may opt out at any time by contacting{" "}
+              <a
+                href="mailto:supportshopka@gmail.com"
+                className="text-brand hover:underline"
+              >
+                supportshopka@gmail.com
+              </a>{" "}
+              or replying STOP to any WhatsApp message.
+            </p>
+            <p className="mt-2">
+              Our WhatsApp messaging is powered by authorized WhatsApp Business
+              Solution Providers. Your number is used solely to deliver OTPs
+              and order updates — never for unauthorized marketing.
             </p>
           </section>
 
@@ -66,9 +76,9 @@ export default function PrivacyPage() {
               4. Payments
             </h2>
             <p>
-              Online payments are processed by Razorpay. We do not store your
-              full card, UPI, or bank details on our servers — Razorpay
-              handles that securely under its own PCI-DSS compliant systems.
+              Online payments (if applicable) are processed by Razorpay. We do
+              not store your card, UPI, or bank details. Razorpay operates
+              under PCI-DSS compliant systems.
             </p>
           </section>
 
@@ -77,9 +87,8 @@ export default function PrivacyPage() {
               5. Cookies &amp; Sessions
             </h2>
             <p>
-              We use a secure session cookie to keep you logged in and a
-              local cart for guests who haven&apos;t signed in yet. We don&apos;t use
-              third-party advertising trackers.
+              We use secure session cookies to keep you logged in. We do not
+              use third-party advertising trackers.
             </p>
           </section>
 
@@ -87,27 +96,40 @@ export default function PrivacyPage() {
             <h2 className="mb-2 text-base font-semibold text-gray-800">
               6. Data Sharing
             </h2>
-            <p>
-              We share only what&apos;s necessary with logistics partners (for
-              delivery), payment processors (for payment), and messaging
-              providers (for OTP/order alerts) — solely to fulfil your orders
-              and keep you informed about them.
+            <p>We share your data only with:</p>
+            <ul className="mt-2 list-disc space-y-1 pl-5">
+              <li>Logistics partners (for delivery)</li>
+              <li>Payment processors (for payments)</li>
+              <li>Messaging providers (for OTP and order alerts)</li>
+            </ul>
+            <p className="mt-2">
+              All sharing is strictly for order fulfilment purposes only.
             </p>
           </section>
 
           <section>
             <h2 className="mb-2 text-base font-semibold text-gray-800">
-              7. Your Choices
+              7. Data Security
             </h2>
             <p>
-              You can update your profile details or addresses anytime from{" "}
+              We implement industry-standard security measures to protect your
+              personal data from unauthorized access, alteration, or
+              disclosure.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="mb-2 text-base font-semibold text-gray-800">
+              8. Your Rights
+            </h2>
+            <p>
+              You may update your profile or delivery addresses from{" "}
               <a href="/profile" className="text-brand hover:underline">
                 My Account
               </a>
-              . To request deletion of your account and associated data,
-              contact us via the{" "}
+              . To request account or data deletion, contact us via{" "}
               <a href="/contact" className="text-brand hover:underline">
-                Contact page
+                shopka.in/contact
               </a>
               .
             </p>
@@ -115,7 +137,18 @@ export default function PrivacyPage() {
 
           <section>
             <h2 className="mb-2 text-base font-semibold text-gray-800">
-              8. Changes to This Policy
+              9. Compliance
+            </h2>
+            <p>
+              This Privacy Policy is in accordance with India&apos;s
+              Information Technology Act, 2000 and the Digital Personal Data
+              Protection (DPDP) Act, 2023.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="mb-2 text-base font-semibold text-gray-800">
+              10. Changes to This Policy
             </h2>
             <p>
               We may update this policy from time to time. Continued use of
@@ -125,23 +158,25 @@ export default function PrivacyPage() {
 
           <section>
             <h2 className="mb-2 text-base font-semibold text-gray-800">
-              9. Contact
+              11. Contact
             </h2>
             <p>
-              Questions about your privacy or data? Reach out via our{" "}
-              <a href="/contact" className="text-brand hover:underline">
-                Contact page
+              Email:{" "}
+              <a
+                href="mailto:supportshopka@gmail.com"
+                className="text-brand hover:underline"
+              >
+                supportshopka@gmail.com
               </a>
-              .
+            </p>
+            <p className="mt-2">
+              Website:{" "}
+              <a href="/contact" className="text-brand hover:underline">
+                shopka.in/contact
+              </a>
             </p>
           </section>
         </div>
-
-        <p className="mt-8 text-xs text-gray-400">
-          This is a general template, not legal advice — have a lawyer
-          review it against India&apos;s Digital Personal Data Protection
-          (DPDP) Act before launch.
-        </p>
       </div>
     </main>
   );

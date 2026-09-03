@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    const { phone, firstName, lastName, email } = body;
+    const { phone, firstName, lastName, email, whatsappConsent } = body;
 
     if (!phone || !firstName?.trim()) {
       return NextResponse.json(
@@ -64,6 +64,9 @@ export async function POST(request: NextRequest) {
       firstName: firstName.trim(),
       lastName: lastName?.trim() || undefined,
       email: trimmedEmail,
+      // Opt-in only counts when the client sends a literal `true`; anything else
+      // (absent, null, "false") is treated as no consent.
+      whatsappConsent: whatsappConsent === true,
     });
 
     await createSession({
