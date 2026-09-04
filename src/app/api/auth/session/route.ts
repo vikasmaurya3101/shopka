@@ -36,6 +36,10 @@ export async function GET() {
         lastName: user.lastName,
         role: user.role,
         phoneVerified: user.phoneVerified,
+        // Exposed so the checkout / profile consent controls can render the
+        // user's actual stored choice instead of defaulting to unticked every
+        // time, which silently misrepresented an existing opt-in as absent.
+        whatsappConsent: user.whatsappConsent,
       },
     });
   } catch (error) {

@@ -9,8 +9,9 @@ import { MessageCircle } from "lucide-react";
  *
  * Deliberate behaviour, required by the WhatsApp Business Terms and Meta
  * Commerce Policy:
- * - Unchecked by default. The caller owns the state and must initialise it to
- *   `false`; nothing here ever pre-ticks it.
+ * - Never pre-ticked as a default. The caller owns the state, and may only
+ *   start it checked by reflecting consent the user has already given us
+ *   (`SessionUser.whatsappConsent`) — never as an assumed opt-in.
  * - Purely optional. It never gates a signup or an order, so callers must not
  *   make submission depend on it.
  * - The descriptive text is a real `<label>`, so clicking it toggles the box,

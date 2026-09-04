@@ -5,6 +5,13 @@ import { createSession } from "@/lib/session";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/**
+ * How long a verified OTP stays usable as proof of ownership — long enough to
+ * type a name and email on the profile step, short enough that a stale code
+ * can't be picked up much later.
+ */
+const OTP_PROOF_MAX_AGE_MS = 15 * 60 * 1000;
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -18,6 +25,27 @@ export async function POST(request: NextRequest) {
           message: "Phone and first name are required.",
         },
         { status: 400 }
+      );
+    }
+
+    // This endpoint creates an account with `phoneVerified: true` and issues a
+    // session, so the caller has to prove they actually received a code on this
+    // number. Nothing else in the request body does that. Checking it before the
+    // "already exists" branch below also stops the route being used to test
+    // whether an arbitrary number is registered.
+    const proof = await authRepository.findVerifiedOtp(
+      phone,
+      "LOGIN",
+      OTP_PROOF_MAX_AGE_MS
+    );
+
+    if (!proof) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Verify your phone number before completing your profile.",
+        },
+        { status: 401 }
       );
     }
 
@@ -68,6 +96,10 @@ export async function POST(request: NextRequest) {
       // (absent, null, "false") is treated as no consent.
       whatsappConsent: whatsappConsent === true,
     });
+
+    // Burn the proof so the same verified code can't be replayed to mint a
+    // second account (or to re-attach the number after it's been changed).
+    await authRepository.consumeOtp(proof.id);
 
     await createSession({
       userId: user.id,

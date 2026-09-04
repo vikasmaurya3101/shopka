@@ -38,7 +38,18 @@ export async function PATCH(request: NextRequest) {
       message: consent
         ? "WhatsApp updates turned on."
         : "WhatsApp updates turned off.",
-      data: user,
+      // Shaped as SessionUser rather than returned wholesale, so internal
+      // columns like firebaseUid and the consent audit timestamps stay server-side.
+      data: {
+        id: user.id,
+        phone: user.phone,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+        phoneVerified: user.phoneVerified,
+        whatsappConsent: user.whatsappConsent,
+      },
     });
   } catch (error) {
     console.error("WhatsApp consent update error:", error);

@@ -70,6 +70,7 @@ export async function POST(request: NextRequest) {
         lastName: user.lastName,
         role: user.role,
         phoneVerified: user.phoneVerified,
+        whatsappConsent: user.whatsappConsent,
       },
     });
   } catch (error) {

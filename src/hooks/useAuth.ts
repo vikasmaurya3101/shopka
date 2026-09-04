@@ -57,6 +57,7 @@ interface SessionUserResult {
   lastName: string | null;
   role: "CUSTOMER" | "SELLER" | "ADMIN";
   phoneVerified: boolean;
+  whatsappConsent: boolean;
 }
 
 /**

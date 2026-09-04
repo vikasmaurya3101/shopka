@@ -16,6 +16,8 @@ export interface SessionUser {
   lastName: string | null;
   role: "CUSTOMER" | "SELLER" | "ADMIN";
   phoneVerified: boolean;
+  /** Stored WhatsApp opt-in, so consent controls render the real value. */
+  whatsappConsent: boolean;
 }
 
 interface SessionContextValue {
