@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import checkoutService from "@/features/checkout/service/checkout.service";
 import { CheckoutDto } from "@/features/checkout/dto/checkout.dto";
+import { PaymentVerificationError } from "@/lib/razorpay-verify";
 
 export async function POST(request: NextRequest) {
   const session = await getSession();
@@ -36,13 +37,19 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error(error);
 
+    // A failed payment check is not a generic bad request: "already applied"
+    // and "we couldn't reach Razorpay" need their own statuses so the browser
+    // (and support) can tell a retryable problem from a rejected one.
+    const status =
+      error instanceof PaymentVerificationError ? error.status : 400;
+
     return NextResponse.json(
       {
         success: false,
         message:
           error instanceof Error ? error.message : "Unable to place order.",
       },
-      { status: 400 }
+      { status }
     );
   }
 }

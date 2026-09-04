@@ -1,45 +1,13 @@
-import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { notifyAdminsOfNewOrder } from "@/lib/notify";
 import { calculateOrderTotals } from "@/lib/utils/order-total";
 import { toShippableLines } from "@/lib/utils/shipping";
-
-interface RazorpayPaymentDetails {
-  razorpayOrderId?: string;
-  razorpayPaymentId?: string;
-  razorpaySignature?: string;
-}
-
-/**
- * Verifies the HMAC-SHA256 signature Razorpay returns after a successful
- * payment, proving the payment really happened and wasn't tampered with.
- * https://razorpay.com/docs/payments/payment-gateway/web-integration/standard/build-integration/#step-5-verify-payment-signature
- */
-function verifyRazorpaySignature({
-  razorpayOrderId,
-  razorpayPaymentId,
-  razorpaySignature,
-}: RazorpayPaymentDetails) {
-  const secret = process.env.RAZORPAY_KEY_SECRET;
-
-  if (!secret) {
-    throw new Error("Razorpay isn't configured on the server.");
-  }
-
-  if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
-    throw new Error("Missing payment verification details.");
-  }
-
-  const expected = crypto
-    .createHmac("sha256", secret)
-    .update(`${razorpayOrderId}|${razorpayPaymentId}`)
-    .digest("hex");
-
-  if (expected !== razorpaySignature) {
-    throw new Error("Payment verification failed. Please contact support.");
-  }
-}
+import {
+  RazorpayPaymentDetails,
+  verifyRazorpayPayment,
+  verifyRazorpaySignature,
+} from "@/lib/razorpay-verify";
 
 function generateInvoiceNumber() {
   const now = new Date();
@@ -58,6 +26,9 @@ export class CheckoutService {
     razorpayDetails?: RazorpayPaymentDetails
   ) {
     if (paymentMethod === "RAZORPAY") {
+      // Cheap fail-fast so an obviously bad callback never touches the cart.
+      // The binding checks that actually protect the amount happen below, once
+      // we know what the order costs.
       verifyRazorpaySignature(razorpayDetails ?? {});
     }
 
@@ -141,6 +112,16 @@ export class CheckoutService {
       .sub(subtotal)
       .add(totals.prepaidDiscount);
 
+    if (paymentMethod === "RAZORPAY") {
+      // Now that we know what this order actually costs, prove the payment was
+      // for that amount. Verifying only the signature up front let a customer
+      // pay for a small cart, add items, and then have the big cart written as
+      // PAID — the signature never carried the amount.
+      await verifyRazorpayPayment(razorpayDetails ?? {}, {
+        userId,
+        amountPaise: Math.round(totals.payable * 100),
+      });
+    }
 
     const order = await prisma.$transaction(async (tx) => {
       const created = await tx.order.create({

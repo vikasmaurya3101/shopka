@@ -1,10 +1,21 @@
-import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { getPrepaidAmount } from "@/lib/utils/discount";
+import {
+  PaymentVerificationError,
+  verifyRazorpayPayment,
+} from "@/lib/razorpay-verify";
 
 /**
- * Verifies Razorpay payment for an existing PENDING order and marks it PAID.
+ * Verifies a Razorpay payment for an existing PENDING order and marks it PAID.
+ *
+ * The signature alone is not enough here: it proves a payment happened against
+ * some Razorpay order, not that it was *this* order's. Without the binding
+ * below, one legitimately-paid ₹100 order's callback could be replayed against
+ * a ₹5,000 pending order and settle it. `verifyRazorpayPayment` re-reads the
+ * Razorpay order and requires the `shopkaOrderId`/`userId` notes we stamped in
+ * create-order-for-existing, plus the exact amount, to match.
  */
 export async function POST(
   request: NextRequest,
@@ -36,32 +47,35 @@ export async function POST(
     return NextResponse.json({ success: false, message: "Order is already paid." }, { status: 400 });
   }
 
-  // Verify HMAC signature
-  const secret = process.env.RAZORPAY_KEY_SECRET;
-  if (!secret) {
-    return NextResponse.json({ success: false, message: "Payment not configured." }, { status: 500 });
+  // Same figure create-order-for-existing quoted Razorpay for this order.
+  const expectedPaise = Math.round(
+    getPrepaidAmount(Number(order.totalAmount)) * 100
+  );
+
+  try {
+    await verifyRazorpayPayment(
+      { razorpayOrderId, razorpayPaymentId, razorpaySignature },
+      { userId: session.userId, amountPaise: expectedPaise, dbOrderId: id }
+    );
+  } catch (error) {
+    if (error instanceof PaymentVerificationError) {
+      return NextResponse.json(
+        { success: false, message: error.message },
+        { status: error.status }
+      );
+    }
+
+    console.error("PAY NOW VERIFY ERROR:", error);
+
+    return NextResponse.json(
+      { success: false, message: "Unable to verify this payment." },
+      { status: 500 }
+    );
   }
 
-  const expected = crypto
-    .createHmac("sha256", secret)
-    .update(`${razorpayOrderId}|${razorpayPaymentId}`)
-    .digest("hex");
-
-  if (expected !== razorpaySignature) {
-    return NextResponse.json({ success: false, message: "Payment verification failed." }, { status: 400 });
-  }
-
-  // Mark order and payment as paid, confirm the order
+  // Mark payment then order as paid, in that order, so the row we return already
+  // carries the settled payment rather than the PENDING one it replaced.
   const updated = await prisma.$transaction(async (tx) => {
-    const updatedOrder = await tx.order.update({
-      where: { id },
-      data: {
-        paymentStatus: "PAID",
-        orderStatus: "CONFIRMED",
-      },
-      include: { payment: true, items: true, address: true },
-    });
-
     if (order.payment) {
       await tx.payment.update({
         where: { id: order.payment.id },
@@ -89,7 +103,14 @@ export async function POST(
       });
     }
 
-    return updatedOrder;
+    return tx.order.update({
+      where: { id },
+      data: {
+        paymentStatus: "PAID",
+        orderStatus: "CONFIRMED",
+      },
+      include: { payment: true, items: true, address: true },
+    });
   });
 
   return NextResponse.json({ success: true, data: updated });

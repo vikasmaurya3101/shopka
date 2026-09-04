@@ -41,7 +41,26 @@ export async function POST(request: NextRequest) {
     amount: amountPaise,
     currency: "INR",
     receipt: `paynow_${Date.now()}_${session.userId.slice(-8)}`,
+    // Load-bearing, not decorative: /api/orders/[id]/pay-now reads these back
+    // from Razorpay to prove the payment it is handed was created for this order
+    // and this user. Only our key secret can set them.
     notes: { userId: session.userId, shopkaOrderId: orderId },
+  });
+
+  // Record which Razorpay order this one is being paid through, so the
+  // payment.captured webhook can still settle the order if the browser never
+  // makes it back to /pay-now. A re-quote after an abandoned attempt overwrites
+  // this; that is safe, because an unpaid Razorpay order is never charged.
+  await prisma.payment.upsert({
+    where: { orderId: order.id },
+    update: { razorpayOrderId: rzpOrder.id },
+    create: {
+      orderId: order.id,
+      method: "RAZORPAY",
+      status: "PENDING",
+      amount: order.totalAmount,
+      razorpayOrderId: rzpOrder.id,
+    },
   });
 
   return NextResponse.json({

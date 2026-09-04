@@ -16,17 +16,34 @@ export async function POST(request: NextRequest) {
 
   const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
   if (!secret) {
-    console.error("[razorpay-webhook] RAZORPAY_WEBHOOK_SECRET not set");
-    return NextResponse.json({ received: true });
+    // Deliberately a 5xx. Answering 200 told Razorpay the event was handled, so
+    // it stopped retrying and every payment.captured was silently dropped —
+    // orders stayed PENDING with the customer's money already taken, and nothing
+    // surfaced the misconfiguration. A 500 makes Razorpay retry (its dashboard
+    // then flags the failures) and the events survive until the secret is set.
+    console.error(
+      "[razorpay-webhook] RAZORPAY_WEBHOOK_SECRET not set — rejecting so Razorpay retries"
+    );
+
+    return NextResponse.json(
+      { error: "Webhook secret not configured" },
+      { status: 500 }
+    );
   }
 
-  // Verify webhook signature
+  // Length-checked constant-time compare; the header is attacker-controlled.
   const expected = crypto
     .createHmac("sha256", secret)
     .update(rawBody)
     .digest("hex");
 
-  if (expected !== signature) {
+  const expectedBuf = Buffer.from(expected, "utf8");
+  const signatureBuf = Buffer.from(signature, "utf8");
+
+  if (
+    expectedBuf.length !== signatureBuf.length ||
+    !crypto.timingSafeEqual(expectedBuf, signatureBuf)
+  ) {
     return NextResponse.json(
       { error: "Invalid signature" },
       { status: 400 }
