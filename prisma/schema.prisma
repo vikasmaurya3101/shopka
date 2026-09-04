@@ -14,6 +14,11 @@ model User {
   phoneVerified    Boolean           @default(false)
   email            String?           @unique
   emailVerified    Boolean           @default(false)
+  /// bcrypt hash, set only for staff who sign in at /admin/login with a
+  /// password. Null for every customer — they authenticate by OTP and have no
+  /// password to guess, so this must stay nullable rather than defaulting to
+  /// some placeholder hash.
+  password         String?
   googleId         String?           @unique // Legacy: Google sign-in was removed; kept so any previously-linked accounts aren't orphaned.
   firstName        String?
   lastName         String?

@@ -8,6 +8,10 @@ const secret = new TextEncoder().encode(
 const COOKIE_NAME = "shopka_session";
 const SESSION_DAYS = 30;
 
+/** Exported so middleware can read the same cookie without duplicating the name. */
+export const SESSION_COOKIE_NAME = COOKIE_NAME;
+
+
 export interface SessionPayload extends JWTPayload {
   userId: string;
   phone: string | null;
@@ -49,6 +53,19 @@ export async function getSession() {
     return null;
   }
 
+  return verifySessionToken(token);
+}
+
+/**
+ * Verifies a raw session token, for callers that can't use `cookies()`.
+ *
+ * Middleware runs on the edge runtime where `next/headers` isn't available, so
+ * it reads the cookie off the request and hands the string here instead. `jose`
+ * is used rather than `jsonwebtoken` precisely because it works in that runtime.
+ */
+export async function verifySessionToken(
+  token: string
+): Promise<SessionPayload | null> {
   try {
     const { payload } = await jwtVerify(token, secret);
 
