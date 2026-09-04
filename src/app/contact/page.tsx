@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Mail, MapPin, MessageCircle } from "lucide-react";
-import { getPublicSettings, buildWhatsAppLink } from "@/lib/settings";
+import { getPublicSettings, buildWhatsAppLink, resolveContactEmail } from "@/lib/settings";
 
 export const metadata: Metadata = {
   title: "Contact Us | Shopka",
@@ -111,7 +111,7 @@ const STATIC_CHANNELS: Channel[] = [
 
 export default async function ContactPage() {
   const settings = await getPublicSettings();
-  const email = settings.contact_email || "support@shopka.in";
+  const email = resolveContactEmail(settings);
   const whatsappHref = buildWhatsAppLink(settings.whatsapp_number);
   const channels = [...buildChannels(email, whatsappHref), ...STATIC_CHANNELS];
 

@@ -16,7 +16,7 @@ type SettingKey =
   | "champion_section_title" | "top_categories_title";
 
 const CONTACT_FIELDS: { key: SettingKey; label: string; placeholder: string; type: string }[] = [
-  { key: "contact_email",   label: "Support Email",        placeholder: "support@shopka.in",                type: "email" },
+  { key: "contact_email",   label: "Support Email",        placeholder: "contact@shopka.in",                type: "email" },
   { key: "contact_phone",   label: "Support Phone",        placeholder: "+91 99999 99999",                  type: "tel"   },
   { key: "whatsapp_number", label: "WhatsApp Number",      placeholder: "919999999999 (no + or spaces)",    type: "tel"   },
   { key: "address",         label: "Business Address",     placeholder: "City, State, India",               type: "text"  },

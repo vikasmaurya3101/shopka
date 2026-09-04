@@ -35,6 +35,19 @@ export type PublicSettingKey = (typeof PUBLIC_SETTING_KEYS)[number];
 export type PublicSettings = Partial<Record<PublicSettingKey, string>>;
 
 /**
+ * Fallback shown when the `contact_email` setting is missing. Defined once so a
+ * blank setting can't leave different pages advertising different addresses —
+ * which is exactly how the old gmail address survived in some corners of the
+ * site after the domain mailbox went live.
+ */
+export const DEFAULT_CONTACT_EMAIL = "contact@shopka.in";
+
+/** The address customers should use, honouring the admin-editable setting. */
+export function resolveContactEmail(settings: PublicSettings): string {
+  return settings.contact_email?.trim() || DEFAULT_CONTACT_EMAIL;
+}
+
+/**
  * Cached, server-only read of every public site setting (60s revalidate).
  * Use this from Server Components (Footer, contact page, etc). Client
  * Components should hit GET /api/public/settings instead.

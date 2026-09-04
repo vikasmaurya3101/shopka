@@ -29,17 +29,22 @@ interface HeroProps {
 }
 
 export default function Hero({
-  badge    = "UP TO 80% OFF · TODAY ONLY",
+  // Defaults must be claims that are true no matter what the catalogue holds —
+  // a hardcoded "Up to 80% off" was advertising a discount no product had, which
+  // is a misleading-listing problem under the Meta Commerce Policy and the
+  // Consumer Protection Act. Anything numeric is computed in page.tsx from real
+  // product data and passed in.
+  badge    = "DEALS YOU DON'T WANT TO MISS",
   title    = "All Trending\nProducts here.",
   subtitle = "Unbeatable prices, handpicked quality, and fast delivery — straight to your door, every single day.",
   cta      = "Shop Now",
   logoUrl  = "/brand/logo-128.png",
-  card1Label = "Flash Deal",
-  card1Value = "Up to 80% off",
-  card2Label = "Free Shipping",
-  card2Value = "On All Orders",
+  card1Label = "Deals",
+  card1Value = "Everyday low prices",
+  card2Label = "Delivery",
+  card2Value = "Fast across India",
   card3Label = "Secure Pay",
-  card3Value = "100% Safe",
+  card3Value = "UPI, Cards & COD",
 }: HeroProps) {
   return (
     <section className="relative overflow-hidden brand-gradient py-10 text-white sm:py-16">

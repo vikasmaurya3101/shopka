@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getPublicSettings, resolveContactEmail } from "@/lib/settings";
 
 export const metadata: Metadata = {
   title: "Help & Support",
@@ -34,7 +35,12 @@ const faqs = [
   },
 ];
 
-export default function HelpPage() {
+export default async function HelpPage() {
+  // Read from settings rather than hardcoding: this page used to advertise a
+  // different address from the footer, so customers were told to write to a
+  // mailbox nobody was watching.
+  const email = resolveContactEmail(await getPublicSettings());
+
   return (
     <div className="min-h-screen bg-white">
       <section className="brand-gradient py-10 text-white sm:py-14">
@@ -73,8 +79,8 @@ export default function HelpPage() {
           <div className="rounded-lg border border-gray-200 p-4">
             <p className="font-semibold text-gray-900">Email us</p>
             <p className="mt-1 text-sm text-gray-600">
-              <a href="mailto:support@shopka.in" className="text-brand hover:underline">
-                support@shopka.in
+              <a href={`mailto:${email}`} className="text-brand hover:underline">
+                {email}
               </a>
             </p>
           </div>

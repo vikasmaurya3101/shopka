@@ -1,12 +1,23 @@
 import type { Metadata } from "next";
+import { getPublicSettings, resolveContactEmail } from "@/lib/settings";
 
 export const metadata: Metadata = {
   title: "Terms of Service | Shopka",
   description:
-    "The terms governing your use of Shopka (shopka.in) — accounts, orders and pricing, Cash on Delivery payments, WhatsApp updates, returns, and governing law.",
+    "The terms governing your use of Shopka (shopka.in) — accounts, orders and pricing, Cash on Delivery and online payments, WhatsApp updates, returns, grievance redressal, and governing law.",
 };
 
-export default function TermsPage() {
+/** Named point of contact required by the Consumer Protection (E-Commerce) Rules, 2020. */
+const GRIEVANCE_OFFICER = {
+  name: "Vikas Maurya",
+  email: "vikasmaurya@shopka.in",
+};
+
+export default async function TermsPage() {
+  const settings = await getPublicSettings();
+  const email = resolveContactEmail(settings);
+  const address = settings.address?.trim();
+
   return (
     <main className="min-h-screen bg-gray-50 px-4 py-12 sm:px-6">
       <div className="mx-auto max-w-2xl">
@@ -14,7 +25,7 @@ export default function TermsPage() {
           Terms of Service
         </h1>
 
-        <p className="mt-2 text-xs text-gray-400">Last updated: 1 September 2026</p>
+        <p className="mt-2 text-xs text-gray-400">Last updated: 3 September 2026</p>
 
         <div className="mt-6 space-y-6 text-sm leading-relaxed text-gray-600">
           <section>
@@ -39,16 +50,22 @@ export default function TermsPage() {
             <p className="mt-2">
               Business Email:{" "}
               <a
-                href="mailto:supportshopka@gmail.com"
+                href={`mailto:${email}`}
                 className="text-brand hover:underline"
               >
-                supportshopka@gmail.com
+                {email}
               </a>
               <br />
               Website:{" "}
               <a href="https://shopka.in" className="text-brand hover:underline">
                 https://shopka.in
               </a>
+              {address && (
+                <>
+                  <br />
+                  Registered Address: {address}
+                </>
+              )}
             </p>
           </section>
 
@@ -80,9 +97,26 @@ export default function TermsPage() {
               5. Payments
             </h2>
             <p>
-              We currently accept Cash on Delivery (COD). Payment is due in full
-              at the time of delivery. Online payment options may be introduced
-              in the future.
+              You can pay online or by Cash on Delivery, where available for your
+              pin code:
+            </p>
+            <ul className="mt-2 list-disc space-y-1 pl-5">
+              <li>
+                <strong>Online payment</strong> — UPI, debit and credit cards,
+                net banking and wallets, processed by Razorpay Software Private
+                Limited. Card and bank details are entered on Razorpay&apos;s
+                secure checkout and are never stored on our servers.
+              </li>
+              <li>
+                <strong>Cash on Delivery (COD)</strong> — payment due in full to
+                the courier at the time of delivery. Some products are not
+                eligible for COD; the product page and checkout will say so.
+              </li>
+            </ul>
+            <p className="mt-2">
+              Delivery charges, where they apply, are shown per product and again
+              in your cart and order summary before you pay. Refunds for prepaid
+              orders are returned to the original payment method.
             </p>
           </section>
 
@@ -97,12 +131,13 @@ export default function TermsPage() {
               WhatsApp on the mobile number you provide. You may opt out at any
               time by contacting us at{" "}
               <a
-                href="mailto:supportshopka@gmail.com"
+                href={`mailto:${email}`}
                 className="text-brand hover:underline"
               >
-                supportshopka@gmail.com
+                {email}
               </a>{" "}
-              or by replying STOP to any WhatsApp message from us.
+              or by replying STOP to any WhatsApp message from us. Opting out is
+              acted on automatically and does not affect your ability to order.
             </p>
           </section>
 
@@ -168,16 +203,49 @@ export default function TermsPage() {
 
           <section>
             <h2 className="mb-2 text-base font-semibold text-gray-800">
-              12. Contact Us
+              12. Grievance Redressal
+            </h2>
+            <p>
+              In accordance with the Consumer Protection (E-Commerce) Rules, 2020
+              and the Information Technology (Intermediary Guidelines) Rules,
+              2021, complaints may be addressed to our Grievance Officer:
+            </p>
+            <p className="mt-2">
+              {GRIEVANCE_OFFICER.name}
+              <br />
+              Grievance Officer, Shopka
+              <br />
+              <a
+                href={`mailto:${GRIEVANCE_OFFICER.email}`}
+                className="text-brand hover:underline"
+              >
+                {GRIEVANCE_OFFICER.email}
+              </a>
+              {address && (
+                <>
+                  <br />
+                  {address}
+                </>
+              )}
+            </p>
+            <p className="mt-2">
+              We acknowledge complaints within 48 hours and aim to resolve them
+              within one month of receipt.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="mb-2 text-base font-semibold text-gray-800">
+              13. Contact Us
             </h2>
             <p>For any questions regarding these Terms, contact us:</p>
             <p className="mt-2">
               Email:{" "}
               <a
-                href="mailto:supportshopka@gmail.com"
+                href={`mailto:${email}`}
                 className="text-brand hover:underline"
               >
-                supportshopka@gmail.com
+                {email}
               </a>
               <br />
               Website:{" "}

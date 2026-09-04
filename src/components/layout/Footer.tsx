@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { Mail, MessageCircle } from "lucide-react";
-import { getPublicSettings, buildWhatsAppLink } from "@/lib/settings";
+import {
+  getPublicSettings,
+  buildWhatsAppLink,
+  resolveContactEmail,
+} from "@/lib/settings";
 
 function IgIcon({ size = 15 }: { size?: number }) {
   return (
@@ -29,7 +33,7 @@ function YtIcon({ size = 15 }: { size?: number }) {
 export default async function Footer() {
   const settings = await getPublicSettings();
 
-  const email = settings.contact_email || "support@shopka.in";
+  const email = resolveContactEmail(settings);
   const whatsappHref = buildWhatsAppLink(settings.whatsapp_number);
   const instagramHref = settings.instagram_url || "https://www.instagram.com/shopka.in";
   const facebookHref = settings.facebook_url || "https://www.facebook.com/shopka.in";
@@ -150,10 +154,10 @@ export default async function Footer() {
         <p className="mt-1.5 text-gray-500">
           Operated by Vikas Maurya |{" "}
           <a
-            href="mailto:supportshopka@gmail.com"
+            href="mailto:vikasmaurya@shopka.in"
             className="hover:text-gray-300 hover:underline"
           >
-            supportshopka@gmail.com
+            vikasmaurya@shopka.in
           </a>{" "}
           | India
         </p>

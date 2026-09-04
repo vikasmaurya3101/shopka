@@ -41,11 +41,52 @@ const getHeroSettings = unstable_cache(
   { revalidate: 60 }
 );
 
+/**
+ * The headline numbers, read off the actual catalogue instead of being typed in.
+ *
+ * The hero used to advertise a hardcoded "Up to 80% off" and "Free Shipping — On
+ * All Orders". Neither was checked against the products on sale, and the first
+ * was simply untrue. Deriving them means the banner can't drift into a
+ * misleading claim as prices and delivery charges change.
+ */
+const getStorefrontClaims = unstable_cache(
+  async () => {
+    const [discount, chargedProducts] = await Promise.all([
+      prisma.product.aggregate({
+        where: { isPublished: true, stock: { gt: 0 } },
+        _max: { discountPercent: true },
+      }),
+      prisma.product.count({
+        where: { isPublished: true, shippingCharge: { gt: 0 } },
+      }),
+    ]);
+
+    return {
+      // Floored, so we never round a 79.4% discount up into a claim of 80%.
+      maxDiscountPercent: Math.floor(Number(discount._max.discountPercent ?? 0)),
+      everythingShipsFree: chargedProducts === 0,
+    };
+  },
+  ["storefront-claims"],
+  { revalidate: 300 }
+);
+
 export default async function HomePage() {
-  const [homeData, s] = await Promise.all([
+  const [homeData, s, claims] = await Promise.all([
     getHomeData(),
     getHeroSettings(),
+    getStorefrontClaims(),
   ]);
+
+  // Only advertise a discount worth advertising, and only the one that exists.
+  const discountClaim =
+    claims.maxDiscountPercent >= 5
+      ? `Up to ${claims.maxDiscountPercent}% off`
+      : undefined;
+
+  const deliveryClaim = claims.everythingShipsFree
+    ? { label: "Free Delivery", value: "On All Orders" }
+    : { label: "Free Delivery", value: "On Most Products" };
 
   const {
     categories,
@@ -64,15 +105,18 @@ export default async function HomePage() {
         <LoginRequiredNotice />
       </Suspense>
       <Hero
-        badge={s["hero_badge"]}
+        badge={
+          s["hero_badge"] ||
+          (discountClaim ? `${discountClaim.toUpperCase()} · SHOP NOW` : undefined)
+        }
         title={s["hero_title"]}
         subtitle={s["hero_subtitle"]}
         cta={s["hero_cta"]}
         logoUrl={s["logo_url"]}
-        card1Label={s["hero_card1_label"]}
-        card1Value={s["hero_card1_value"]}
-        card2Label={s["hero_card2_label"]}
-        card2Value={s["hero_card2_value"]}
+        card1Label={s["hero_card1_label"] || (discountClaim ? "Top Deal" : undefined)}
+        card1Value={s["hero_card1_value"] || discountClaim}
+        card2Label={s["hero_card2_label"] || deliveryClaim.label}
+        card2Value={s["hero_card2_value"] || deliveryClaim.value}
         card3Label={s["hero_card3_label"]}
         card3Value={s["hero_card3_value"]}
       />
