@@ -51,7 +51,7 @@ export async function sendMail({
   const { error } = await resend.emails.send({
     from,
     to,
-    reply_to: replyTo,
+    replyTo: replyTo,
     subject,
     text,
     html,
