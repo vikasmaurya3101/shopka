@@ -23,8 +23,9 @@ export interface OrderEmailAddress {
   city: string;
   state: string;
   pincode: string;
+  latitude?: number | null;   // ← add karo
+  longitude?: number | null;  // ← add karo
 }
-
 export interface OrderEmailCustomer {
   firstName?: string | null;
   lastName?: string | null;
@@ -106,18 +107,12 @@ function formatAddress(address: OrderEmailAddress): string {
 }
 
 function googleMapsLink(address: OrderEmailAddress): string {
+  if (address.latitude && address.longitude) {
+    return `https://www.google.com/maps?q=${address.latitude},${address.longitude}`;
+  }
   const query = encodeURIComponent(
-    [
-      address.houseNumber,
-      address.apartment,
-      address.area,
-      address.city,
-      address.state,
-      address.pincode,
-      "India",
-    ]
-      .filter(Boolean)
-      .join(", ")
+    [address.houseNumber, address.area, address.city, address.state, address.pincode, "India"]
+      .filter(Boolean).join(", ")
   );
   return `https://www.google.com/maps/search/?api=1&query=${query}`;
 }
