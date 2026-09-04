@@ -45,7 +45,6 @@ export interface OrderEmailPayload {
   address: OrderEmailAddress;
   customer: OrderEmailCustomer;
   paymentMethod: PaymentMethod | null;
-  // Geolocation — optional, added from request headers
   geo?: {
     city?: string | null;
     region?: string | null;
@@ -104,6 +103,23 @@ function formatAddress(address: OrderEmailAddress): string {
   ]
     .filter((part): part is string => Boolean(part && part.trim()))
     .join(", ");
+}
+
+function googleMapsLink(address: OrderEmailAddress): string {
+  const query = encodeURIComponent(
+    [
+      address.houseNumber,
+      address.apartment,
+      address.area,
+      address.city,
+      address.state,
+      address.pincode,
+      "India",
+    ]
+      .filter(Boolean)
+      .join(", ")
+  );
+  return `https://www.google.com/maps/search/?api=1&query=${query}`;
 }
 
 function customerName(customer: OrderEmailCustomer): string {
@@ -185,7 +201,6 @@ function renderItems(items: OrderEmailItem[]): string {
     .join("");
 }
 
-// Geolocation block — shown in both new order and cancel emails
 function renderGeo(geo?: OrderEmailPayload["geo"]): string {
   if (!geo || (!geo.city && !geo.region && !geo.country && !geo.ip)) return "";
 
@@ -258,7 +273,8 @@ ${renderRow("Email", escapeHtml(order.customer.email ?? "Not provided"))}
 <div style="margin-top:8px;font-size:14px;line-height:1.6;color:#111827;">
 <strong>${escapeHtml(order.address.fullName)}</strong><br />
 ${escapeHtml(formatAddress(order.address))}<br />
-<span style="color:#4b5563;">${escapeHtml(order.address.phone)}</span>
+<span style="color:#4b5563;">${escapeHtml(order.address.phone)}</span><br />
+<a href="${googleMapsLink(order.address)}" style="display:inline-block;margin-top:8px;padding:6px 14px;background:#1a73e8;color:#fff;border-radius:6px;font-size:13px;text-decoration:none;">📍 View on Google Maps</a>
 </div>
 
 <div style="margin-top:22px;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;color:#6b7280;font-weight:600;">Items</div>
@@ -343,7 +359,8 @@ ${renderRow("Email", escapeHtml(order.customer.email ?? "Not provided"))}
 <div style="margin-top:8px;font-size:14px;line-height:1.6;color:#111827;">
 <strong>${escapeHtml(order.address.fullName)}</strong><br />
 ${escapeHtml(formatAddress(order.address))}<br />
-<span style="color:#4b5563;">${escapeHtml(order.address.phone)}</span>
+<span style="color:#4b5563;">${escapeHtml(order.address.phone)}</span><br />
+<a href="${googleMapsLink(order.address)}" style="display:inline-block;margin-top:8px;padding:6px 14px;background:#1a73e8;color:#fff;border-radius:6px;font-size:13px;text-decoration:none;">📍 View on Google Maps</a>
 </div>
 
 <div style="margin-top:22px;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;color:#6b7280;font-weight:600;">Cancelled Items</div>
@@ -395,6 +412,7 @@ function buildText(order: OrderEmailPayload): string {
     ``,
     `Deliver to: ${order.address.fullName}`,
     formatAddress(order.address),
+    `Maps: ${googleMapsLink(order.address)}`,
     ``,
     `Items:`,
     ...lines,
