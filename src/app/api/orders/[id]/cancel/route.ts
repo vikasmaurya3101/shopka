@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { sendCancelNotification } from "@/lib/orderEmail";
 
-// Customers can cancel only while the order hasn't shipped yet — once it's
-// on the way, cancelling in transit isn't practical, so they'd request a
-// return instead once it's delivered.
 const CANCELLABLE_STATUSES = ["PENDING", "CONFIRMED", "PROCESSING"];
 
 export async function POST(
@@ -99,6 +97,36 @@ export async function POST(
     }
 
     return result;
+  });
+
+  // Cancel email — un-awaited, order already cancelled hai
+  void sendCancelNotification({
+    id: updated.id,
+    invoiceNumber: order.invoiceNumber,
+    cancelledAt: new Date(),
+    totalAmount: updated.totalAmount.toString(),
+    paymentStatus: updated.paymentStatus,
+    cancelReason: reason ?? null,
+    items: updated.items.map((item) => ({
+      productName: item.productName,
+      sku: item.sku,
+      quantity: item.quantity,
+      sellingPrice: item.sellingPrice.toString(),
+      totalAmount: item.totalAmount.toString(),
+    })),
+    address: updated.address,
+    customer: {
+      firstName: null,
+      lastName: null,
+      email: null,
+      phone: updated.address.phone,
+    },
+    geo: {
+      city: request.headers.get("x-vercel-ip-city") ?? null,
+      region: request.headers.get("x-vercel-ip-country-region") ?? null,
+      country: request.headers.get("x-vercel-ip-country") ?? null,
+      ip: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
+    },
   });
 
   return NextResponse.json({ success: true, data: updated });

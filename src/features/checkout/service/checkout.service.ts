@@ -14,8 +14,6 @@ function generateInvoiceNumber() {
   const now = new Date();
   const y = now.getFullYear();
   const rand = Math.floor(100000 + Math.random() * 900000);
-  // SHK = Shopka. Orders placed before the rename still carry the old "BM-"
-  // prefix; those are historical records and are left untouched.
   return `SHK-${y}-${rand}`;
 }
 
@@ -24,12 +22,15 @@ export class CheckoutService {
     userId: string,
     addressId: string,
     paymentMethod: "COD" | "RAZORPAY" | "UPI",
-    razorpayDetails?: RazorpayPaymentDetails
+    razorpayDetails?: RazorpayPaymentDetails,
+    geo?: {
+      city?: string | null;
+      region?: string | null;
+      country?: string | null;
+      ip?: string | null;
+    }
   ) {
     if (paymentMethod === "RAZORPAY") {
-      // Cheap fail-fast so an obviously bad callback never touches the cart.
-      // The binding checks that actually protect the amount happen below, once
-      // we know what the order costs.
       verifyRazorpaySignature(razorpayDetails ?? {});
     }
 
@@ -95,9 +96,6 @@ export class CheckoutService {
       };
     });
 
-    // Shipping/prepaid maths live in calculateOrderTotals() so the amount we
-    // charge here is identical to what the cart and checkout summaries showed
-    // and to the Razorpay order created in /api/payments/razorpay/create-order.
     const totals = calculateOrderTotals({
       subtotal: subtotal.toNumber(),
       lines: toShippableLines(cart.items),
@@ -107,17 +105,11 @@ export class CheckoutService {
     const shippingCharge = new Prisma.Decimal(totals.shipping);
     const taxTotal = new Prisma.Decimal(0);
     const totalAmount = new Prisma.Decimal(totals.payable);
-    // Savings the customer made off MRP — product-level discount plus the
-    // prepaid discount. Shipping is a charge, not a discount, so it stays out.
     const discountAmount = mrpTotal
       .sub(subtotal)
       .add(totals.prepaidDiscount);
 
     if (paymentMethod === "RAZORPAY") {
-      // Now that we know what this order actually costs, prove the payment was
-      // for that amount. Verifying only the signature up front let a customer
-      // pay for a small cart, add items, and then have the big cart written as
-      // PAID — the signature never carried the amount.
       await verifyRazorpayPayment(razorpayDetails ?? {}, {
         userId,
         amountPaise: Math.round(totals.payable * 100),
@@ -172,12 +164,6 @@ export class CheckoutService {
       return created;
     });
 
-    // Outside the transaction, and deliberately not awaited into the response
-    // path: SMTP is a third-party network call that can take seconds or hang.
-    // Inside the transaction it would hold a DB connection open for that whole
-    // time; awaited here it would delay the customer's confirmation. It already
-    // resolves false rather than throwing, and `void` documents that a rejected
-    // promise is impossible by construction.
     void sendOrderNotification({
       id: order.id,
       invoiceNumber: order.invoiceNumber,
@@ -202,6 +188,7 @@ export class CheckoutService {
         email: order.user.email,
         phone: order.user.phone,
       },
+      geo,
     });
 
     return order;

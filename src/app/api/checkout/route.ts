@@ -26,6 +26,12 @@ export async function POST(request: NextRequest) {
         razorpayOrderId: data.razorpayOrderId,
         razorpayPaymentId: data.razorpayPaymentId,
         razorpaySignature: data.razorpaySignature,
+      },
+      {
+        city: request.headers.get("x-vercel-ip-city") ?? null,
+        region: request.headers.get("x-vercel-ip-country-region") ?? null,
+        country: request.headers.get("x-vercel-ip-country") ?? null,
+        ip: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
       }
     );
 
@@ -37,9 +43,6 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error(error);
 
-    // A failed payment check is not a generic bad request: "already applied"
-    // and "we couldn't reach Razorpay" need their own statuses so the browser
-    // (and support) can tell a retryable problem from a rejected one.
     const status =
       error instanceof PaymentVerificationError ? error.status : 400;
 
