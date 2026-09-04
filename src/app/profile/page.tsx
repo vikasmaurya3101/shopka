@@ -12,6 +12,7 @@ import {
   MapPin,
   MessageCircle,
   Package,
+  Pencil,
   Share2,
   User as UserIcon,
 } from "lucide-react";
@@ -24,12 +25,30 @@ import { getInitials } from "@/lib/utils";
 import Loader from "@/components/ui/Loader";
 
 export default function ProfilePage() {
-  const { user, isAuthenticated, isLoading } = useSession();
+  const { user, isAuthenticated, isLoading, setUser } = useSession();
   const { logout } = useAuth();
   const { settings } = useSiteSettings();
   const [addresses, setAddresses] = useState<AddressData[]>([]);
   const [copied, setCopied] = useState(false);
   const whatsappHref = buildWhatsAppLink(settings.whatsapp_number);
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [form, setForm] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+  });
+
+  // The stored opt-in is the source of truth, and it only lands once the session
+  // resolves after the first paint. So the switch *derives* from it instead of
+  // copying it into state, and `pendingConsent` holds just the toggle the user
+  // made while the write is in flight — someone who already consented is never
+  // shown an "off" switch, and a fresh toggle can't be clobbered by an unrelated
+  // re-render.
+  const [pendingConsent, setPendingConsent] = useState<boolean | null>(null);
+  const [isSavingConsent, setIsSavingConsent] = useState(false);
+  const whatsappConsent = pendingConsent ?? user?.whatsappConsent ?? false;
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -66,6 +85,89 @@ export default function ProfilePage() {
 
   const referralCode = `SHOPKA${user.id.slice(0, 6).toUpperCase()}`;
 
+  function startEditing() {
+    setForm({
+      firstName: user?.firstName ?? "",
+      lastName: user?.lastName ?? "",
+      email: user?.email ?? "",
+    });
+    setIsEditing(true);
+  }
+
+  async function handleSaveProfile(e: React.FormEvent) {
+    e.preventDefault();
+
+    if (!form.firstName.trim() || isSavingProfile) return;
+
+    setIsSavingProfile(true);
+
+    try {
+      const res = await fetch("/api/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        // Phone is deliberately absent: it needs an OTP, so it is only
+        // changeable through the /add-phone flow.
+        body: JSON.stringify({
+          firstName: form.firstName,
+          lastName: form.lastName,
+          email: form.email,
+        }),
+      });
+      const json = await res.json().catch(() => null);
+
+      if (!res.ok || !json?.success) {
+        // Stay in edit mode so the rejected values are still on screen to fix.
+        toast.error(json?.message ?? "Couldn't save your details.");
+        return;
+      }
+
+      setUser(json.data);
+      setIsEditing(false);
+      toast.success(json.message ?? "Profile updated.");
+    } catch {
+      toast.error("Couldn't save your details.");
+    } finally {
+      setIsSavingProfile(false);
+    }
+  }
+
+  async function handleConsentChange(next: boolean) {
+    if (!user) return;
+
+    setPendingConsent(next);
+    setIsSavingConsent(true);
+
+    try {
+      const res = await fetch("/api/auth/whatsapp-consent", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ consent: next }),
+      });
+      const json = await res.json().catch(() => null);
+
+      if (!res.ok || !json?.success) {
+        // Drop the override and fall back to the stored value.
+        setPendingConsent(null);
+        toast.error(json?.message ?? "Couldn't save your WhatsApp preference.");
+        return;
+      }
+
+      // Mirror it into the session so the checkout checkbox and anything else
+      // reading consent sees the new value without a reload. Once stored agrees,
+      // the override has nothing left to do.
+      setUser({ ...user, whatsappConsent: next });
+      setPendingConsent(null);
+      toast.success(
+        next ? "WhatsApp updates turned on." : "WhatsApp updates turned off."
+      );
+    } catch {
+      setPendingConsent(null);
+      toast.error("Couldn't save your WhatsApp preference.");
+    } finally {
+      setIsSavingConsent(false);
+    }
+  }
+
   function copyReferral() {
     navigator.clipboard.writeText(referralCode).then(() => {
       setCopied(true);
@@ -88,21 +190,135 @@ export default function ProfilePage() {
       <div className="mx-auto max-w-xl space-y-4">
 
         {/* ── User card ── */}
-        <div className="flex items-center gap-4 rounded-2xl border bg-white p-5 shadow-sm">
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-brand text-xl font-bold text-white">
-            {getInitials(user.firstName, user.lastName)}
-          </div>
-          <div className="min-w-0 flex-1">
-            <h1 className="text-lg font-bold leading-tight text-gray-900">
-              {user.firstName} {user.lastName ?? ""}
-            </h1>
-            {user.phone && (
-              <p className="text-sm text-gray-500">+91 {user.phone}</p>
+        <div className="rounded-2xl border bg-white p-5 shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-brand text-xl font-bold text-white">
+              {getInitials(user.firstName, user.lastName)}
+            </div>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-lg font-bold leading-tight text-gray-900">
+                {user.firstName} {user.lastName ?? ""}
+              </h1>
+              {user.phone && (
+                <p className="text-sm text-gray-500">+91 {user.phone}</p>
+              )}
+              {user.email && (
+                <p className="truncate text-sm text-gray-500">{user.email}</p>
+              )}
+            </div>
+            {!isEditing && (
+              <button
+                onClick={startEditing}
+                className="tap-shrink flex shrink-0 items-center gap-1.5 rounded-xl border border-brand px-3 py-1.5 text-sm font-semibold text-brand transition hover:bg-brand-50"
+              >
+                <Pencil size={14} />
+                Edit
+              </button>
             )}
-            {user.email && (
-              <p className="truncate text-sm text-gray-500">{user.email}</p>
-            )}
           </div>
+
+          {isEditing && (
+            <form onSubmit={handleSaveProfile} className="mt-5 space-y-3 border-t pt-4">
+              <div>
+                <label
+                  htmlFor="profile-first-name"
+                  className="mb-1 block text-sm font-medium text-gray-700"
+                >
+                  First name
+                </label>
+                <input
+                  id="profile-first-name"
+                  required
+                  maxLength={50}
+                  value={form.firstName}
+                  onChange={(e) =>
+                    setForm({ ...form, firstName: e.target.value })
+                  }
+                  className="w-full rounded-lg border px-3 py-2 outline-none focus:border-brand"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="profile-last-name"
+                  className="mb-1 block text-sm font-medium text-gray-700"
+                >
+                  Last name{" "}
+                  <span className="font-normal text-gray-400">(optional)</span>
+                </label>
+                <input
+                  id="profile-last-name"
+                  maxLength={50}
+                  value={form.lastName}
+                  onChange={(e) =>
+                    setForm({ ...form, lastName: e.target.value })
+                  }
+                  className="w-full rounded-lg border px-3 py-2 outline-none focus:border-brand"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="profile-email"
+                  className="mb-1 block text-sm font-medium text-gray-700"
+                >
+                  Email{" "}
+                  <span className="font-normal text-gray-400">(optional)</span>
+                </label>
+                <input
+                  id="profile-email"
+                  type="email"
+                  autoComplete="email"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  className="w-full rounded-lg border px-3 py-2 outline-none focus:border-brand"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Leave this blank to remove your email from your account.
+                </p>
+              </div>
+              <div>
+                <label
+                  htmlFor="profile-phone"
+                  className="mb-1 block text-sm font-medium text-gray-700"
+                >
+                  Phone
+                </label>
+                <input
+                  id="profile-phone"
+                  readOnly
+                  value={user.phone ? `+91 ${user.phone}` : "Not added yet"}
+                  className="w-full cursor-not-allowed rounded-lg border bg-gray-50 px-3 py-2 text-gray-500 outline-none"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Your phone number can&apos;t be changed here — it needs an OTP.
+                  Use{" "}
+                  <Link
+                    href="/add-phone?redirect=/profile"
+                    className="font-medium text-brand hover:underline"
+                  >
+                    verify a phone number
+                  </Link>{" "}
+                  instead.
+                </p>
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="submit"
+                  disabled={isSavingProfile || !form.firstName.trim()}
+                  className="tap-shrink flex-1 rounded-xl bg-brand py-2.5 text-sm font-semibold text-white transition hover:bg-brand-dark disabled:opacity-60"
+                >
+                  {isSavingProfile ? "Saving..." : "Save"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(false)}
+                  disabled={isSavingProfile}
+                  className="tap-shrink flex-1 rounded-xl border py-2.5 text-sm font-semibold text-gray-600 transition hover:bg-gray-50 disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
         </div>
 
         {/* ── Add phone nudge ── */}
@@ -145,6 +361,45 @@ export default function ProfilePage() {
               sub="Manage products & orders"
             />
           )}
+        </div>
+
+        {/* ── WhatsApp updates ── */}
+        <div className="rounded-2xl border bg-white p-5 shadow-sm">
+          <div className="flex items-start gap-3">
+            <MessageCircle size={20} className="mt-0.5 shrink-0 text-green-600" />
+            <div className="min-w-0 flex-1">
+              <h2 id="whatsapp-updates-label" className="font-bold text-gray-900">
+                WhatsApp updates
+              </h2>
+              <p className="mt-0.5 text-sm text-gray-500">
+                Order confirmations, delivery updates and support replies on
+                WhatsApp.
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={whatsappConsent}
+              aria-labelledby="whatsapp-updates-label"
+              onClick={() => handleConsentChange(!whatsappConsent)}
+              disabled={isSavingConsent}
+              className={`relative mt-0.5 inline-flex h-6 w-11 shrink-0 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:opacity-60 ${
+                whatsappConsent ? "bg-green-600" : "bg-gray-300"
+              }`}
+            >
+              <span
+                className={`mt-0.5 inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                  whatsappConsent ? "translate-x-5" : "translate-x-0.5"
+                }`}
+              />
+            </button>
+          </div>
+          <p className="mt-3 border-t pt-3 text-xs leading-relaxed text-gray-500">
+            Turning this off stops order and delivery updates on WhatsApp.
+            One-time passwords you request yourself are still sent, because they
+            are how you sign in. You can also reply STOP to any WhatsApp message
+            from us to opt out.
+          </p>
         </div>
 
         {/* ── Refer & Earn ── */}

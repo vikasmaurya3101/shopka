@@ -47,7 +47,7 @@ function getEstimatedDelivery() {
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { isAuthenticated, isLoading: isSessionLoading, user } = useSession();
+  const { isAuthenticated, isLoading: isSessionLoading, user, setUser } = useSession();
   const { cart, isLoading: isCartLoading, updateQuantity } = useCart();
 
   const [addresses, setAddresses] = useState<AddressData[]>([]);
@@ -70,14 +70,22 @@ export default function CheckoutPage() {
   const [qtyDraft, setQtyDraft] = useState(1);
   const [isUpdatingQty, setIsUpdatingQty] = useState(false);
 
-  // Explicit WhatsApp opt-in. Starts unchecked and is never required to place an
-  // order; each toggle is persisted against the profile so the consent record
-  // survives even if the order is abandoned.
-  const [whatsappConsent, setWhatsappConsent] = useState(false);
+  // Explicit WhatsApp opt-in. Never required to place an order; each toggle is
+  // persisted against the profile so the consent record survives even if the
+  // order is abandoned.
+  //
+  // The stored opt-in is the source of truth, and it only arrives once the
+  // session resolves after the first paint. So rather than copying it into
+  // state, the box *derives* from it and `pendingConsent` holds just the toggle
+  // the shopper made while the write is in flight. That way an already-consenting
+  // shopper is never shown an unticked box, and a toggle can't be clobbered by
+  // an unrelated re-render.
+  const [pendingConsent, setPendingConsent] = useState<boolean | null>(null);
   const [isSavingConsent, setIsSavingConsent] = useState(false);
+  const whatsappConsent = pendingConsent ?? user?.whatsappConsent ?? false;
 
   async function handleConsentChange(next: boolean) {
-    setWhatsappConsent(next);
+    setPendingConsent(next);
     setIsSavingConsent(true);
 
     try {
@@ -89,11 +97,21 @@ export default function CheckoutPage() {
       const json = await res.json().catch(() => null);
 
       if (!res.ok || !json?.success) {
-        setWhatsappConsent(!next);
+        // Drop the override and fall back to the stored value.
+        setPendingConsent(null);
         toast.error(json?.message ?? "Couldn't save your WhatsApp preference.");
+        return;
+      }
+
+      // Mirror it into the session, so the /profile toggle and anything else
+      // reading consent agrees with what we just stored. Once stored matches,
+      // the override has nothing left to do.
+      if (user) {
+        setUser({ ...user, whatsappConsent: next });
+        setPendingConsent(null);
       }
     } catch {
-      setWhatsappConsent(!next);
+      setPendingConsent(null);
       toast.error("Couldn't save your WhatsApp preference.");
     } finally {
       setIsSavingConsent(false);
