@@ -209,10 +209,10 @@ export default async function Footer() {
         <p className="mt-1.5 text-gray-500">
           Operated by Vikas Maurya |{" "}
           <a
-            href="mailto:vikasmaurya@shopka.in"
+            href="mailto:support@shopka.in"
             className="hover:text-gray-300 hover:underline"
           >
-            vikasmaurya@shopka.in
+            support@shopka.in
           </a>{" "}
           | India
         </p>

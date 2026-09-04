@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 /** Named point of contact required by the Consumer Protection (E-Commerce) Rules, 2020. */
 const GRIEVANCE_OFFICER = {
   name: "Vikas Maurya",
-  email: "vikasmaurya@shopka.in",
+  email: "support@shopka.in",
 };
 
 export default async function TermsPage() {

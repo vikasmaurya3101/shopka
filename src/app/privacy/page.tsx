@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 /** Kept in step with the Grievance Officer named in the Terms of Service. */
 const GRIEVANCE_OFFICER = {
   name: "Vikas Maurya",
-  email: "vikasmaurya@shopka.in",
+  email: "support@shopka.in",
 };
 
 export default async function PrivacyPage() {
