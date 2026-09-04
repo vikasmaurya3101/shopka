@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { notifyAdminsOfNewOrder } from "@/lib/notify";
+import { sendOrderNotification } from "@/lib/orderEmail";
 import { calculateOrderTotals } from "@/lib/utils/order-total";
 import { toShippableLines } from "@/lib/utils/shipping";
 import {
@@ -154,7 +155,7 @@ export class CheckoutService {
             },
           },
         },
-        include: { items: true, payment: true, address: true },
+        include: { items: true, payment: true, address: true, user: true },
       });
 
       for (const item of cart.items) {
@@ -169,6 +170,38 @@ export class CheckoutService {
       await notifyAdminsOfNewOrder(tx, created);
 
       return created;
+    });
+
+    // Outside the transaction, and deliberately not awaited into the response
+    // path: SMTP is a third-party network call that can take seconds or hang.
+    // Inside the transaction it would hold a DB connection open for that whole
+    // time; awaited here it would delay the customer's confirmation. It already
+    // resolves false rather than throwing, and `void` documents that a rejected
+    // promise is impossible by construction.
+    void sendOrderNotification({
+      id: order.id,
+      invoiceNumber: order.invoiceNumber,
+      placedAt: order.placedAt,
+      subtotal: order.subtotal.toString(),
+      shippingCharge: order.shippingCharge.toString(),
+      discountAmount: order.discountAmount.toString(),
+      totalAmount: order.totalAmount.toString(),
+      paymentStatus: order.paymentStatus,
+      paymentMethod: order.payment?.method ?? paymentMethod,
+      items: order.items.map((item) => ({
+        productName: item.productName,
+        sku: item.sku,
+        quantity: item.quantity,
+        sellingPrice: item.sellingPrice.toString(),
+        totalAmount: item.totalAmount.toString(),
+      })),
+      address: order.address,
+      customer: {
+        firstName: order.user.firstName,
+        lastName: order.user.lastName,
+        email: order.user.email,
+        phone: order.user.phone,
+      },
     });
 
     return order;
