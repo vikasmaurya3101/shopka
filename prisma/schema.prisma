@@ -30,6 +30,10 @@ model User {
   /// When consent was last granted (set) or withdrawn (cleared to null), so the
   /// opt-in is auditable rather than just a bare boolean.
   whatsappConsentAt DateTime?
+  /// When the user last opted out (checkbox unticked, profile toggle off, or an
+  /// inbound "STOP"). Kept even after a later re-opt-in so we can evidence that
+  /// an opt-out was honoured, which `whatsappConsentAt` alone cannot show.
+  whatsappOptOutAt DateTime?
   addresses        Address[]
   cart             Cart?
   notifications    Notification[]
@@ -65,6 +69,26 @@ model OtpVerification {
   @@index([expiresAt])
   @@index([phone, purpose, isVerified])
   @@map("otp_verifications")
+}
+
+/// One row per OTP *request*, written before any message is sent, purely so
+/// `/api/auth/send-otp` can be rate limited. It deliberately does not live on
+/// `OtpVerification`, because that table is cleared on every resend and so can
+/// never show how many codes a number has already been sent.
+///
+/// Rows are pruned opportunistically (see `otpRateLimiter`) — nothing here is
+/// retained beyond the rate-limit window.
+model OtpRequestLog {
+  id        String   @id @default(cuid())
+  phone     String
+  /// Caller IP from `x-forwarded-for`, so one host can't cycle phone numbers.
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([phone, createdAt])
+  @@index([ip, createdAt])
+  @@index([createdAt])
+  @@map("otp_request_logs")
 }
 
 model Address {

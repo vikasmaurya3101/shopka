@@ -31,6 +31,18 @@ function isMockMode(): boolean {
   return !hasRealProvider || (process.env.OTP_PROVIDER ?? "").toLowerCase() === "mock";
 }
 
+/**
+ * How long an OTP row is kept after it stops being usable. Codes expire in
+ * minutes; this window only exists so a verified row can still act as proof of
+ * ownership on the signup step. Past it the row is just a stored phone number,
+ * so it's deleted. This figure is what the privacy policy states.
+ */
+export const OTP_RETENTION_MS = 24 * 60 * 60 * 1000;
+
+/** Roughly one prune per 20 sends — keeps the send path cheap, no cron needed. */
+const PRUNE_PROBABILITY = 0.05;
+
+
 export class OtpService {
   /**
    * Sends a login/signup OTP. Login flow:
@@ -49,6 +61,16 @@ export class OtpService {
     channel: OtpChannelRequest = "whatsapp"
   ): Promise<SendOtpResult> {
     await authRepository.clearPendingOtp(phone, purpose);
+
+    // Opportunistic retention cleanup. Best-effort: never fail a login because
+    // housekeeping failed.
+    if (Math.random() < PRUNE_PROBABILITY) {
+      try {
+        await authRepository.purgeStaleOtps(OTP_RETENTION_MS);
+      } catch (err) {
+        console.error("OTP retention purge failed:", err);
+      }
+    }
 
     if (isMockMode()) {
       const otp = generateOtp();
