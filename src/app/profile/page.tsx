@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { useSession } from "@/providers/SessionProvider";
 import { useAuth } from "@/hooks/useAuth";
 import { useSiteSettings, buildWhatsAppLink } from "@/hooks/useSiteSettings";
+import { resolveSocialLinks, type SocialPlatform } from "@/lib/social-links";
 import { AddressData } from "@/types/order";
 import { getInitials } from "@/lib/utils";
 import Loader from "@/components/ui/Loader";
@@ -31,6 +32,9 @@ export default function ProfilePage() {
   const [addresses, setAddresses] = useState<AddressData[]>([]);
   const [copied, setCopied] = useState(false);
   const whatsappHref = buildWhatsAppLink(settings.whatsapp_number);
+  // Only the accounts configured at /admin/settings — no guessed URLs, so a
+  // platform the shop isn't on simply doesn't appear here.
+  const socialLinks = resolveSocialLinks(settings);
 
   const [isEditing, setIsEditing] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
@@ -445,37 +449,30 @@ export default function ProfilePage() {
         </div>
 
         {/* ── Connect on Social ── */}
-        <div className="rounded-2xl border bg-white p-5 shadow-sm">
-          <h2 className="mb-4 font-semibold text-gray-800">Connect on Social</h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <SocialBtn
-              href="https://www.instagram.com/shopka.in"
-              label="Instagram"
-              gradient="from-pink-500 to-rose-500"
-              icon={<IgIcon />}
-            />
-            <SocialBtn
-              href="https://www.facebook.com/shopka.in"
-              label="Facebook"
-              gradient="from-blue-600 to-blue-500"
-              icon={<FbIcon />}
-            />
-            <SocialBtn
-              href="https://www.youtube.com/@shopka.in"
-              label="YouTube"
-              gradient="from-red-600 to-red-500"
-              icon={<YtIcon />}
-            />
-            {whatsappHref && (
-              <SocialBtn
-                href={whatsappHref}
-                label="WhatsApp"
-                gradient="from-green-500 to-emerald-500"
-                icon={<MessageCircle size={18} />}
-              />
-            )}
+        {(socialLinks.length > 0 || whatsappHref) && (
+          <div className="rounded-2xl border bg-white p-5 shadow-sm">
+            <h2 className="mb-4 font-semibold text-gray-800">Connect on Social</h2>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {socialLinks.map((link) => (
+                <SocialBtn
+                  key={link.platform}
+                  href={link.href}
+                  label={link.label}
+                  gradient={SOCIAL_GRADIENT[link.platform]}
+                  icon={SOCIAL_ICON[link.platform]}
+                />
+              ))}
+              {whatsappHref && (
+                <SocialBtn
+                  href={whatsappHref}
+                  label="WhatsApp"
+                  gradient="from-green-500 to-emerald-500"
+                  icon={<MessageCircle size={18} />}
+                />
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* ── Logout ── */}
         <button
@@ -578,3 +575,25 @@ function YtIcon() {
     </svg>
   );
 }
+
+function XIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+    </svg>
+  );
+}
+
+const SOCIAL_ICON: Record<SocialPlatform, React.ReactNode> = {
+  instagram: <IgIcon />,
+  facebook: <FbIcon />,
+  youtube: <YtIcon />,
+  twitter: <XIcon />,
+};
+
+const SOCIAL_GRADIENT: Record<SocialPlatform, string> = {
+  instagram: "from-pink-500 to-rose-500",
+  facebook: "from-blue-600 to-blue-500",
+  youtube: "from-red-600 to-red-500",
+  twitter: "from-gray-800 to-gray-700",
+};

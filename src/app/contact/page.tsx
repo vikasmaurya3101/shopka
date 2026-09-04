@@ -1,7 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Mail, MapPin, MessageCircle } from "lucide-react";
+import { Mail, MapPin, MessageCircle, Phone } from "lucide-react";
 import { getPublicSettings, buildWhatsAppLink, resolveContactEmail } from "@/lib/settings";
+import {
+  buildTelLink,
+  resolveSocialLinks,
+  type SocialLink,
+  type SocialPlatform,
+} from "@/lib/social-links";
 
 export const metadata: Metadata = {
   title: "Contact Us | Shopka",
@@ -32,6 +38,14 @@ function YtIcon() {
   );
 }
 
+function XIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+    </svg>
+  );
+}
+
 type Channel = {
   icon: React.ReactNode;
   title: string;
@@ -42,78 +56,128 @@ type Channel = {
   hoverBorder: string;
 };
 
-function buildChannels(email: string, whatsappHref: string | null): Channel[] {
+const SOCIAL_CHANNEL_STYLE: Record<
+  SocialPlatform,
+  { icon: React.ReactNode; iconBg: string; iconColor: string; hoverBorder: string }
+> = {
+  instagram: {
+    icon: <IgIcon />,
+    iconBg: "bg-pink-50",
+    iconColor: "text-pink-500",
+    hoverBorder: "hover:border-pink-400",
+  },
+  facebook: {
+    icon: <FbIcon />,
+    iconBg: "bg-blue-50",
+    iconColor: "text-blue-600",
+    hoverBorder: "hover:border-blue-400",
+  },
+  youtube: {
+    icon: <YtIcon />,
+    iconBg: "bg-red-50",
+    iconColor: "text-red-500",
+    hoverBorder: "hover:border-red-400",
+  },
+  twitter: {
+    icon: <XIcon />,
+    iconBg: "bg-gray-100",
+    iconColor: "text-gray-900",
+    hoverBorder: "hover:border-gray-400",
+  },
+};
+
+/**
+ * The contact channels we can actually stand behind. Everything here is driven
+ * by the site settings, so nothing is advertised that an admin hasn't
+ * configured — the previous hardcoded list linked to a YouTube channel that
+ * returned a 404 and to an Instagram account that isn't the one in settings.
+ */
+function buildChannels(input: {
+  email: string;
+  phone: string | undefined;
+  telHref: string | null;
+  whatsappHref: string | null;
+  socialLinks: SocialLink[];
+  address: string | undefined;
+}): Channel[] {
   const channels: Channel[] = [
     {
       icon: <Mail size={20} />,
       title: "Email us",
-      sub: email,
-      href: `mailto:${email}`,
+      sub: input.email,
+      href: `mailto:${input.email}`,
       iconBg: "bg-brand-50",
       iconColor: "text-brand",
       hoverBorder: "hover:border-brand",
     },
   ];
 
-  if (whatsappHref) {
+  if (input.telHref && input.phone) {
+    channels.push({
+      icon: <Phone size={20} />,
+      title: "Call us",
+      sub: input.phone,
+      href: input.telHref,
+      iconBg: "bg-indigo-50",
+      iconColor: "text-indigo-600",
+      hoverBorder: "hover:border-indigo-400",
+    });
+  }
+
+  if (input.whatsappHref) {
     channels.push({
       icon: <MessageCircle size={20} />,
       title: "WhatsApp",
       sub: "Chat with us on WhatsApp",
-      href: whatsappHref,
+      href: input.whatsappHref,
       iconBg: "bg-green-50",
       iconColor: "text-green-600",
       hoverBorder: "hover:border-green-400",
     });
   }
 
-  return channels;
-}
+  for (const link of input.socialLinks) {
+    const style = SOCIAL_CHANNEL_STYLE[link.platform];
 
-const STATIC_CHANNELS: Channel[] = [
-  {
-    icon: <IgIcon />,
-    title: "Instagram",
-    sub: "@shopka.in",
-    href: "https://www.instagram.com/shopka.in",
-    iconBg: "bg-pink-50",
-    iconColor: "text-pink-500",
-    hoverBorder: "hover:border-pink-400",
-  },
-  {
-    icon: <FbIcon />,
-    title: "Facebook",
-    sub: "facebook.com/shopka.in",
-    href: "https://www.facebook.com/shopka.in",
-    iconBg: "bg-blue-50",
-    iconColor: "text-blue-600",
-    hoverBorder: "hover:border-blue-400",
-  },
-  {
-    icon: <YtIcon />,
-    title: "YouTube",
-    sub: "@shopka.in",
-    href: "https://www.youtube.com/@shopka.in",
-    iconBg: "bg-red-50",
-    iconColor: "text-red-500",
-    hoverBorder: "hover:border-red-400",
-  },
-  {
+    channels.push({
+      icon: style.icon,
+      title: link.label,
+      // Derived from the URL, so the caption can't name a different account
+      // from the one the link opens.
+      sub: link.handle,
+      href: link.href,
+      iconBg: style.iconBg,
+      iconColor: style.iconColor,
+      hoverBorder: style.hoverBorder,
+    });
+  }
+
+  channels.push({
     icon: <MapPin size={20} />,
-    title: "Based in India",
-    sub: "Serving customers pan-India",
+    title: input.address ? "Our address" : "Based in India",
+    sub: input.address ?? "Serving customers pan-India",
     href: null,
     iconBg: "bg-gray-100",
     iconColor: "text-gray-500",
     hoverBorder: "",
-  },
-];
+  });
+
+  return channels;
+}
 
 export default async function ContactPage() {
   const settings = await getPublicSettings();
   const email = resolveContactEmail(settings);
   const whatsappHref = buildWhatsAppLink(settings.whatsapp_number);
-  const channels = [...buildChannels(email, whatsappHref), ...STATIC_CHANNELS];
+  const phone = settings.contact_phone?.trim();
+  const channels = buildChannels({
+    email,
+    phone,
+    telHref: buildTelLink(phone),
+    whatsappHref,
+    socialLinks: resolveSocialLinks(settings),
+    address: settings.address?.trim(),
+  });
 
   return (
     <main className="min-h-screen bg-gray-50">

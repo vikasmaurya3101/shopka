@@ -1,10 +1,15 @@
 import Link from "next/link";
-import { Mail, MessageCircle } from "lucide-react";
+import { Mail, MapPin, MessageCircle, Phone } from "lucide-react";
 import {
   getPublicSettings,
   buildWhatsAppLink,
   resolveContactEmail,
 } from "@/lib/settings";
+import {
+  buildTelLink,
+  resolveSocialLinks,
+  type SocialPlatform,
+} from "@/lib/social-links";
 
 function IgIcon({ size = 15 }: { size?: number }) {
   return (
@@ -30,19 +35,48 @@ function YtIcon({ size = 15 }: { size?: number }) {
   );
 }
 
+function XIcon({ size = 15 }: { size?: number }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor">
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+    </svg>
+  );
+}
+
+/**
+ * Per-platform glyph and hover colour, keyed off the resolved link's platform so
+ * a newly configured social account renders without touching this file.
+ */
+const SOCIAL_STYLE: Record<
+  SocialPlatform,
+  { icon: (size: number) => React.ReactNode; hover: string }
+> = {
+  instagram: { icon: (s) => <IgIcon size={s} />, hover: "hover:text-pink-400" },
+  facebook: { icon: (s) => <FbIcon size={s} />, hover: "hover:text-blue-400" },
+  youtube: { icon: (s) => <YtIcon size={s} />, hover: "hover:text-red-400" },
+  twitter: { icon: (s) => <XIcon size={s} />, hover: "hover:text-gray-200" },
+};
+
 export default async function Footer() {
   const settings = await getPublicSettings();
 
   const email = resolveContactEmail(settings);
   const whatsappHref = buildWhatsAppLink(settings.whatsapp_number);
-  const instagramHref = settings.instagram_url || "https://www.instagram.com/shopka.in";
-  const facebookHref = settings.facebook_url || "https://www.facebook.com/shopka.in";
-  const youtubeHref = settings.youtube_url || "https://www.youtube.com/@shopka.in";
+  const telHref = buildTelLink(settings.contact_phone);
+  const address = settings.address?.trim();
+
+  // Only the accounts an admin has actually configured at /admin/settings. There
+  // are deliberately no fallback URLs: a guessed handle is a dead link, and one
+  // of them (youtube.com/@shopka.in) really was a 404 on every page.
+  const socialLinks = resolveSocialLinks(settings);
 
   const social = [
-    { label: "Instagram", href: instagramHref, icon: <IgIcon size={20} />, color: "hover:text-pink-400" },
-    { label: "Facebook", href: facebookHref, icon: <FbIcon size={20} />, color: "hover:text-blue-400" },
-    { label: "YouTube", href: youtubeHref, icon: <YtIcon size={20} />, color: "hover:text-red-400" },
+    ...socialLinks.map((link) => ({
+      label: link.label,
+      href: link.href,
+      icon: SOCIAL_STYLE[link.platform].icon(20),
+      color: SOCIAL_STYLE[link.platform].hover,
+    })),
     ...(whatsappHref
       ? [{ label: "WhatsApp", href: whatsappHref, icon: <MessageCircle size={20} />, color: "hover:text-green-400" }]
       : []),
@@ -117,6 +151,17 @@ export default async function Footer() {
                 {email}
               </a>
             </li>
+            {telHref && (
+              <li>
+                <a
+                  href={telHref}
+                  className="flex items-center gap-2 transition hover:text-white"
+                >
+                  <Phone size={15} />
+                  {settings.contact_phone}
+                </a>
+              </li>
+            )}
             {whatsappHref && (
               <li>
                 <a
@@ -130,17 +175,27 @@ export default async function Footer() {
                 </a>
               </li>
             )}
-            <li>
-              <a
-                href={instagramHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 transition hover:text-pink-400"
-              >
-                <IgIcon size={15} />
-                @shopka.in
-              </a>
-            </li>
+            {/* Handle text comes from the URL, so the label can never disagree
+                with where the link actually goes. */}
+            {socialLinks.map((link) => (
+              <li key={link.platform}>
+                <a
+                  href={link.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`flex items-center gap-2 transition ${SOCIAL_STYLE[link.platform].hover}`}
+                >
+                  {SOCIAL_STYLE[link.platform].icon(15)}
+                  {link.handle}
+                </a>
+              </li>
+            ))}
+            {address && (
+              <li className="flex items-start gap-2">
+                <MapPin size={15} className="mt-0.5 shrink-0" />
+                <span>{address}</span>
+              </li>
+            )}
           </ul>
         </div>
 
