@@ -1,6 +1,6 @@
 import type { PaymentMethod, PaymentStatus } from "@prisma/client";
 
-import { getMailFrom, getTransporter } from "@/lib/mailer";
+import { getMailFrom, getTransporter, sendMail } from "@/lib/mailer";
 import { formatCurrency } from "@/lib/utils/currency";
 
 /**
@@ -328,7 +328,7 @@ export async function sendOrderNotification(
   }
 
   try {
-    await transporter.sendMail({
+    await sendMail({
       from: `"Shopka Orders" <${from}>`,
       to: recipient,
       // Lets the team reply straight to the customer where we have an address.
