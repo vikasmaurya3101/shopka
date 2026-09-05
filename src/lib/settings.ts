@@ -40,7 +40,7 @@ export type PublicSettings = Partial<Record<PublicSettingKey, string>>;
  * which is exactly how the old gmail address survived in some corners of the
  * site after the domain mailbox went live.
  */
-export const DEFAULT_CONTACT_EMAIL = "contact@shopka.in";
+export const DEFAULT_CONTACT_EMAIL = "support@shopka.in";
 
 /** The address customers should use, honouring the admin-editable setting. */
 export function resolveContactEmail(settings: PublicSettings): string {

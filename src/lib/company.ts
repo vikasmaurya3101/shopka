@@ -12,7 +12,7 @@
 export const COMPANY = {
   legalName: "Shopka",
   operatorName: "Vikas Maurya",
-  operatorEmail: "vikasmaurya@shopka.in",
+  operatorEmail: "support@shopka.in",
   udyamNumber: "UDYAM-UP-31-0053970",
 } as const;
 
