@@ -351,7 +351,7 @@ export default function OrderDetailPage() {
                             </span>
                           )}
                         </div>
-                        <div className={`mt-0.5 text-xs ${isDone ? "text-gray-500" : "text-gray-300"}`}>{step.subLabel}</div>
+                        <div className={`mt-0.5 text-xs ${isCompleted || isCurrent ? "text-gray-500" : "text-gray-300"}`}>{step.subLabel}</div>
                       </div>
                     </div>
                   );
