@@ -8,9 +8,12 @@ import { OrderData, OrderStatus } from "@/types/order";
 import { formatCurrency } from "@/lib/utils/currency";
 import { getPrepaidAmount, PREPAID_DISCOUNT } from "@/lib/utils/discount";
 import Loader from "@/components/ui/Loader";
+import { COMPANY } from "@/lib/company";
 
 const RETURN_WINDOW_DAYS = 3;
-const CANCELLABLE_STATUSES = ["PENDING", "CONFIRMED", "PROCESSING"];
+// Cancellation stays open through "Shipped" — once it's Out for Delivery,
+// the courier already has it, so it can no longer be pulled back.
+const CANCELLABLE_STATUSES = ["PENDING", "CONFIRMED", "PROCESSING", "SHIPPED"];
 
 const CANCEL_REASONS = [
   "I want to change the delivery address",
@@ -55,8 +58,10 @@ export default function OrderDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
+  const [showHelpMenu, setShowHelpMenu] = useState(false);
   const [showCancelForm, setShowCancelForm] = useState(false);
   const [showReturnForm, setShowReturnForm] = useState(false);
+  const [showUpdateNote, setShowUpdateNote] = useState<"address" | "contact" | null>(null);
   const [cancelReason, setCancelReason] = useState(CANCEL_REASONS[0]);
   const [cancelOther, setCancelOther] = useState("");
   const [returnReason, setReturnReason] = useState(RETURN_REASONS[0]);
@@ -94,6 +99,7 @@ export default function OrderDetailPage() {
       if (!json.success) { toast.error(json.message ?? "Unable to cancel order."); return; }
       setOrder(json.data);
       setShowCancelForm(false);
+      setShowHelpMenu(false);
       toast.success("Order cancelled.");
     } finally {
       setIsSubmitting(false);
@@ -114,6 +120,7 @@ export default function OrderDetailPage() {
       if (!json.success) { toast.error(json.message ?? "Unable to request return."); return; }
       setOrder(json.data);
       setShowReturnForm(false);
+      setShowHelpMenu(false);
       toast.success("Return requested. We'll be in touch shortly.");
     } finally {
       setIsSubmitting(false);
@@ -244,7 +251,7 @@ export default function OrderDetailPage() {
 
         {/* ── Order Status card ── */}
         <div className="mb-4 rounded-xl border bg-white p-5">
-          <h2 className="mb-4 font-semibold text-gray-800">Order Status</h2>
+          <h2 className="mb-4 text-xs font-semibold uppercase tracking-wide text-gray-400">Order Status</h2>
 
           {/* Cancelled / Returned banner */}
           {(order.orderStatus === "CANCELLED" || order.orderStatus === "RETURNED" || order.orderStatus === "REFUNDED") && (
@@ -268,14 +275,42 @@ export default function OrderDetailPage() {
             const STATUS_ORDER: OrderStatus[] = ["PENDING", "CONFIRMED", "PROCESSING", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED"];
             const currentIdx = STATUS_ORDER.indexOf(order.orderStatus);
             const steps = [
-              { label: "Order Placed",      subLabel: `Your order has been placed. Est. delivery: ${estDeliveryLabel}`,  status: "PENDING" as OrderStatus,           date: order.placedAt },
-              { label: "Order Confirmed",   subLabel: "Seller is processing your order.",     status: "CONFIRMED" as OrderStatus,         date: null },
-              { label: "Packed & Ready",    subLabel: "Item packed and waiting for pickup.",  status: "PROCESSING" as OrderStatus,        date: null },
-              { label: "Shipped",           subLabel: "Item is on the way.",                  status: "SHIPPED" as OrderStatus,           date: null },
+              { label: "Order Placed",      subLabel: `Your order has been received. Est. delivery: ${estDeliveryLabel}`, status: "PENDING" as OrderStatus,           date: order.placedAt },
+              { label: "Order Confirmed",   subLabel: "Seller has accepted your order.",      status: "CONFIRMED" as OrderStatus,         date: null },
+              { label: "Packed & Ready",    subLabel: "Your item is packed and waiting for pickup.", status: "PROCESSING" as OrderStatus, date: null },
+              { label: "Shipped",           subLabel: "Item will be on the way.",             status: "SHIPPED" as OrderStatus,           date: null },
               { label: "Out for Delivery",  subLabel: "Item is out for delivery today.",      status: "OUT_FOR_DELIVERY" as OrderStatus,  date: null },
               { label: "Delivered",         subLabel: "Item delivered successfully.",         status: "DELIVERED" as OrderStatus,         date: order.deliveredAt },
             ];
+
+            // 5-point header bar (Placed / Confirmed / Packed / Shipped /
+            // Delivered) — Shipped and Out for Delivery share one point here,
+            // since the detailed break-out between the two is what the
+            // vertical timeline below is for.
+            const HEADER_STAGES = ["Placed", "Confirmed", "Packed", "Shipped", "Delivered"];
+            const headerFillPct =
+              currentIdx >= 5 ? 100 : currentIdx >= 3 ? 75 : currentIdx >= 2 ? 50 : currentIdx >= 1 ? 25 : 0;
+            const headerActiveIdx =
+              currentIdx >= 5 ? 4 : currentIdx >= 3 ? 3 : currentIdx >= 2 ? 2 : currentIdx >= 1 ? 1 : 0;
+
             return (
+              <>
+                <div className="mb-6">
+                  <div className="mb-2 flex justify-between text-[11px] font-semibold uppercase tracking-wide">
+                    {HEADER_STAGES.map((label, idx) => (
+                      <span key={label} className={idx <= headerActiveIdx ? "text-brand" : "text-gray-400"}>
+                        {label}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
+                    <div
+                      className="h-full rounded-full bg-brand transition-all duration-500"
+                      style={{ width: `${headerFillPct}%` }}
+                    />
+                  </div>
+                </div>
+
               <div className="space-y-0">
                 {steps.map((step, idx) => {
                   const stepIdx = STATUS_ORDER.indexOf(step.status);
@@ -310,6 +345,7 @@ export default function OrderDetailPage() {
                   );
                 })}
               </div>
+              </>
             );
           })()}
 
@@ -349,23 +385,87 @@ export default function OrderDetailPage() {
             <p className="mt-3 text-xs text-gray-400">The {RETURN_WINDOW_DAYS}-day return window for this order has passed.</p>
           )}
 
-          {/* Action buttons */}
-          {(canCancel || canReturn) && !showCancelForm && !showReturnForm && (
-            <div className="mt-4 flex flex-wrap gap-3">
-              {canCancel && (
-                <button onClick={() => setShowCancelForm(true)} className="rounded-xl border-2 border-red-500 px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50">
-                  Cancel Order
-                </button>
-              )}
-              {canReturn && (
-                <button onClick={() => setShowReturnForm(true)} className="rounded-xl border-2 border-brand px-4 py-2 text-sm font-semibold text-brand transition hover:bg-brand-50">
-                  Return Order
-                </button>
-              )}
-            </div>
-          )}
+          {/* Need Help — a single low-key entry point instead of a bare
+              "Cancel Order" button. Cancel/return/address/contact all live
+              as options inside it, so the default view doesn't nudge
+              everyone toward cancelling. */}
+          {order.orderStatus !== "CANCELLED" &&
+            order.orderStatus !== "RETURNED" &&
+            order.orderStatus !== "REFUNDED" &&
+            !showCancelForm &&
+            !showReturnForm && (
+              <div className="mt-4 border-t pt-4">
+                {!showHelpMenu ? (
+                  <button
+                    onClick={() => setShowHelpMenu(true)}
+                    className="flex w-full items-center justify-between rounded-xl border px-4 py-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                  >
+                    Need help with this order?
+                    <span className="text-gray-400">▾</span>
+                  </button>
+                ) : (
+                  <div className="rounded-xl border bg-gray-50 p-2">
+                    <button
+                      onClick={() => setShowUpdateNote("address")}
+                      className="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm text-gray-700 hover:bg-white"
+                    >
+                      Update delivery address <span className="text-gray-400">›</span>
+                    </button>
+                    <button
+                      onClick={() => setShowUpdateNote("contact")}
+                      className="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm text-gray-700 hover:bg-white"
+                    >
+                      Update contact number <span className="text-gray-400">›</span>
+                    </button>
+                    {canReturn && (
+                      <button
+                        onClick={() => { setShowHelpMenu(false); setShowUpdateNote(null); setShowReturnForm(true); }}
+                        className="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm text-gray-700 hover:bg-white"
+                      >
+                        Return or replace item <span className="text-gray-400">›</span>
+                      </button>
+                    )}
+                    {canCancel && (
+                      <button
+                        onClick={() => { setShowHelpMenu(false); setShowUpdateNote(null); setShowCancelForm(true); }}
+                        className="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm font-medium text-red-600 hover:bg-red-50"
+                      >
+                        Cancel this order <span className="text-red-300">›</span>
+                      </button>
+                    )}
 
-          {/* Cancel form with dropdown */}
+                    {showUpdateNote && (
+                      <div className="mt-1 rounded-lg border border-brand/30 bg-brand-50/40 p-3 text-xs text-gray-600">
+                        For order safety we don&apos;t edit a placed order&apos;s{" "}
+                        {showUpdateNote === "address" ? "address" : "contact number"} directly here —
+                        our support team can update it for you in a couple of minutes.
+                      </div>
+                    )}
+
+                    <div className="mt-2 border-t pt-2">
+                      <p className="px-3 pb-1.5 text-xs text-gray-400">Problem not listed?</p>
+                      <a
+                        href={`mailto:${COMPANY.operatorEmail}?subject=${encodeURIComponent(
+                          `Help with order #${order.invoiceNumber}`
+                        )}`}
+                        className="flex items-center justify-center gap-2 rounded-lg border-2 border-brand px-3 py-2.5 text-sm font-semibold text-brand transition hover:bg-brand-50"
+                      >
+                        ✉️ Mail Us
+                      </a>
+                    </div>
+
+                    <button
+                      onClick={() => { setShowHelpMenu(false); setShowUpdateNote(null); }}
+                      className="mt-1 w-full rounded-lg px-3 py-2 text-center text-xs text-gray-400 hover:text-gray-600"
+                    >
+                      Close
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+          {/* Cancel form */}
           {showCancelForm && (
             <div className="mt-4 rounded-lg border bg-gray-50 p-4">
               <p className="mb-3 text-sm font-semibold text-gray-700">Why are you cancelling?</p>
@@ -391,12 +491,12 @@ export default function OrderDetailPage() {
                   className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50">
                   {isSubmitting ? "Cancelling..." : "Confirm Cancel"}
                 </button>
-                <button onClick={() => setShowCancelForm(false)} className="rounded-lg border px-4 py-2 text-sm">Back</button>
+                <button onClick={() => { setShowCancelForm(false); setShowHelpMenu(true); }} className="rounded-lg border px-4 py-2 text-sm">Back</button>
               </div>
             </div>
           )}
 
-          {/* Return form with dropdown */}
+          {/* Return form */}
           {showReturnForm && (
             <div className="mt-4 rounded-lg border bg-gray-50 p-4">
               <p className="mb-3 text-sm font-semibold text-gray-700">Why are you returning this item?</p>
@@ -422,7 +522,7 @@ export default function OrderDetailPage() {
                   className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50">
                   {isSubmitting ? "Submitting..." : "Submit Return"}
                 </button>
-                <button onClick={() => setShowReturnForm(false)} className="rounded-lg border px-4 py-2 text-sm">Back</button>
+                <button onClick={() => { setShowReturnForm(false); setShowHelpMenu(true); }} className="rounded-lg border px-4 py-2 text-sm">Back</button>
               </div>
             </div>
           )}
@@ -462,7 +562,7 @@ export default function OrderDetailPage() {
 
         {/* Items */}
         <div className="mb-4 rounded-xl border bg-white p-5">
-          <h2 className="mb-3 font-semibold text-gray-800">Items</h2>
+          <h2 className="mb-3 font-semibold text-gray-800">Product Details</h2>
           <div className="space-y-3">
             {order.items.map((item) => (
               <div key={item.id} className="flex gap-3">
