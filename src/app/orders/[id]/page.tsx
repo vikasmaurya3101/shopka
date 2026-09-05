@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
 import { toast } from "sonner";
+import { Check, Package, Truck, Bike, CreditCard } from "lucide-react";
 import { OrderData, OrderStatus } from "@/types/order";
 import { formatCurrency } from "@/lib/utils/currency";
 import { getPrepaidAmount, PREPAID_DISCOUNT } from "@/lib/utils/discount";
@@ -275,12 +276,12 @@ export default function OrderDetailPage() {
             const STATUS_ORDER: OrderStatus[] = ["PENDING", "CONFIRMED", "PROCESSING", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED"];
             const currentIdx = STATUS_ORDER.indexOf(order.orderStatus);
             const steps = [
-              { label: "Order Placed",      subLabel: `Your order has been received. Est. delivery: ${estDeliveryLabel}`, status: "PENDING" as OrderStatus,           date: order.placedAt },
-              { label: "Order Confirmed",   subLabel: "Seller has accepted your order.",      status: "CONFIRMED" as OrderStatus,         date: null },
-              { label: "Packed & Ready",    subLabel: "Your item is packed and waiting for pickup.", status: "PROCESSING" as OrderStatus, date: null },
-              { label: "Shipped",           subLabel: "Item will be on the way.",             status: "SHIPPED" as OrderStatus,           date: null },
-              { label: "Out for Delivery",  subLabel: "Item is out for delivery today.",      status: "OUT_FOR_DELIVERY" as OrderStatus,  date: null },
-              { label: "Delivered",         subLabel: "Item delivered successfully.",         status: "DELIVERED" as OrderStatus,         date: order.deliveredAt },
+              { label: "Order Placed",      subLabel: `Your order has been received. Est. delivery: ${estDeliveryLabel}`, status: "PENDING" as OrderStatus,           date: order.placedAt, icon: Check },
+              { label: "Order Confirmed",   subLabel: "Seller has accepted your order.",      status: "CONFIRMED" as OrderStatus,         date: null, icon: Check },
+              { label: "Packed & Ready",    subLabel: "Your item is packed and waiting for pickup.", status: "PROCESSING" as OrderStatus, date: null, icon: Package },
+              { label: "Shipped",           subLabel: "Item will be on the way.",             status: "SHIPPED" as OrderStatus,           date: null, icon: Truck },
+              { label: "Out for Delivery",  subLabel: "Item is out for delivery today.",      status: "OUT_FOR_DELIVERY" as OrderStatus,  date: null, icon: Bike },
+              { label: "Delivered",         subLabel: "Item delivered successfully.",         status: "DELIVERED" as OrderStatus,         date: order.deliveredAt, icon: Check },
             ];
 
             // 5-point header bar (Placed / Confirmed / Packed / Shipped /
@@ -314,24 +315,35 @@ export default function OrderDetailPage() {
               <div className="space-y-0">
                 {steps.map((step, idx) => {
                   const stepIdx = STATUS_ORDER.indexOf(step.status);
-                  const isDone = currentIdx >= stepIdx;
                   const isLast = idx === steps.length - 1;
+                  const isCompleted = currentIdx > stepIdx || (isLast && currentIdx === stepIdx);
+                  const isCurrent = currentIdx === stepIdx && !isLast;
+                  const StepIcon = step.icon;
                   return (
                     <div key={step.status} className="flex gap-4">
                       <div className="flex flex-col items-center">
-                        <div className={`relative z-10 mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${isDone ? "border-green-500 bg-green-500" : "border-gray-300 bg-white"}`}>
-                          {isDone && (
-                            <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
-                          )}
+                        <div
+                          className={`relative z-10 mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 ${
+                            isCompleted
+                              ? "border-brand bg-brand"
+                              : isCurrent
+                                ? "border-brand bg-white"
+                                : "border-gray-300 bg-white"
+                          }`}
+                        >
+                          <StepIcon
+                            className={`h-3.5 w-3.5 ${
+                              isCompleted ? "text-white" : isCurrent ? "text-brand" : "text-gray-300"
+                            }`}
+                            strokeWidth={isCompleted || isCurrent ? 2.5 : 2}
+                          />
                         </div>
-                        {!isLast && <div className={`my-1 w-0.5 flex-1 ${isDone ? "bg-green-400" : "bg-gray-200"}`} style={{ minHeight: 28 }} />}
+                        {!isLast && <div className={`my-1 w-0.5 flex-1 ${isCompleted ? "bg-brand" : "bg-gray-200"}`} style={{ minHeight: 28 }} />}
                       </div>
                       <div className={`min-w-0 pb-5 ${isLast ? "pb-0" : ""}`}>
-                        <div className={`text-sm font-semibold ${isDone ? "text-gray-900" : "text-gray-400"}`}>
+                        <div className={`text-sm font-semibold ${isCompleted || isCurrent ? "text-gray-900" : "text-gray-400"}`}>
                           {step.label}
-                          {step.date && isDone && (
+                          {step.date && isCompleted && (
                             <span className="ml-2 text-xs font-normal text-gray-500">
                               {new Date(step.date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "2-digit" })}
                               {" · "}
@@ -353,22 +365,24 @@ export default function OrderDetailPage() {
           <div className="mt-4 border-t pt-4">
             {order.paymentStatus === "PENDING" && order.orderStatus !== "CANCELLED" ? (
               /* COD order — invite user to pay online and save ₹15 */
-              <div className="flex flex-wrap items-center gap-4">
-                {/* Price with strikethrough */}
-                <div className="flex items-baseline gap-2">
-                  <span className="text-sm text-gray-400 line-through">₹{Number(order.totalAmount).toFixed(0)}</span>
-                  <span className="text-lg font-bold text-green-600">₹{getPrepaidAmount(Number(order.totalAmount)).toFixed(0)}</span>
-                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-bold text-green-700">-₹{PREPAID_DISCOUNT}</span>
+              <div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-amber-700">
+                    Payment: Pending
+                  </span>
+                  <button
+                    onClick={handlePayNow}
+                    disabled={isPayingNow}
+                    className="flex items-center gap-2 rounded-full border-2 border-gray-900 bg-white px-4 py-2 text-sm font-semibold text-gray-900 transition hover:bg-gray-50 disabled:opacity-60"
+                  >
+                    <CreditCard className="h-4 w-4" />
+                    {isPayingNow ? "Opening..." : "Pay Now"}
+                    <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-bold text-green-700">
+                      Save ₹{PREPAID_DISCOUNT}
+                    </span>
+                  </button>
                 </div>
-                {/* Pay Now button */}
-                <button
-                  onClick={handlePayNow}
-                  disabled={isPayingNow}
-                  className="flex items-center gap-2 rounded-full bg-green-600 px-5 py-2 text-sm font-bold text-white shadow transition hover:bg-green-700 disabled:opacity-60"
-                >
-                  {isPayingNow ? "Opening..." : "💳 Pay Now & Save ₹" + PREPAID_DISCOUNT}
-                </button>
-                <p className="w-full text-xs text-gray-400">Pay online now to save ₹{PREPAID_DISCOUNT} on this order.</p>
+                <p className="mt-2 text-xs text-gray-400">Pay online and save ₹{PREPAID_DISCOUNT} on this order.</p>
               </div>
             ) : order.paymentStatus === "PAID" ? (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
