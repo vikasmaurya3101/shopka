@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { PackageSearch } from "lucide-react";
 import { useSession } from "@/providers/SessionProvider";
 import { OrderData } from "@/types/order";
 import { formatCurrency } from "@/lib/utils/currency";
@@ -11,10 +12,10 @@ import Loader from "@/components/ui/Loader";
 
 const statusColors: Record<string, string> = {
   PENDING: "bg-amber-100 text-amber-700",
-  CONFIRMED: "bg-blue-100 text-blue-700",
-  PROCESSING: "bg-blue-100 text-blue-700",
-  SHIPPED: "bg-indigo-100 text-indigo-700",
-  OUT_FOR_DELIVERY: "bg-indigo-100 text-indigo-700",
+  CONFIRMED: "bg-brand-50 text-brand",
+  PROCESSING: "bg-brand-50 text-brand",
+  SHIPPED: "bg-brand-50 text-brand",
+  OUT_FOR_DELIVERY: "bg-brand-50 text-brand",
   DELIVERED: "bg-green-100 text-green-700",
   CANCELLED: "bg-red-100 text-red-700",
   RETURNED: "bg-red-100 text-red-700",
@@ -74,8 +75,22 @@ export default function OrdersPage() {
         <h1 className="mb-5 text-xl font-bold text-gray-800">My Orders</h1>
 
         {orders.length === 0 ? (
-          <div className="rounded-xl border bg-white p-10 text-center">
-            <p className="text-gray-400">No orders yet.</p>
+          <div className="flex flex-col items-center gap-4 rounded-xl border bg-white p-10 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-50">
+              <PackageSearch className="h-8 w-8 text-brand" strokeWidth={1.5} />
+            </div>
+            <div>
+              <p className="font-semibold text-gray-800">No orders yet</p>
+              <p className="mt-1 text-sm text-gray-400">
+                Explore some new arrivals and place your first order.
+              </p>
+            </div>
+            <Link
+              href="/search?newArrival=true"
+              className="rounded-xl bg-brand px-6 py-2.5 text-sm font-semibold text-white shadow transition hover:bg-brand-dark"
+            >
+              ✨ Explore New Arrivals
+            </Link>
           </div>
         ) : (
           <div className="space-y-3">
@@ -130,14 +145,14 @@ export default function OrdersPage() {
                         </p>
                       </div>
 
-                      {/* Pay Now prompt */}
+                      {/* Pay Now prompt — same black-outline style as the order detail page */}
                       {isPendingPayment && (
-                        <div className="mt-2 flex items-center gap-1.5 rounded-md bg-green-50 px-2 py-1.5">
-                          <span className="text-xs text-green-700">
-                            💳 Pay online &amp; save ₹{PREPAID_DISCOUNT}
+                        <div className="mt-2 flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1 rounded-full border-2 border-gray-900 bg-white px-2.5 py-1 text-xs font-semibold text-gray-900">
+                            💳 Pay Now
                           </span>
-                          <span className="ml-auto rounded-full bg-green-600 px-2.5 py-0.5 text-xs font-bold text-white">
-                            Pay Now
+                          <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-bold text-green-700">
+                            Save ₹{PREPAID_DISCOUNT}
                           </span>
                         </div>
                       )}
