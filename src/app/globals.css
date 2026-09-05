@@ -117,3 +117,28 @@ body {
   background: var(--color-brand-100);
   border-radius: 999px;
 }
+
+/* Branded loading screen (src/app/loading.tsx) */
+@keyframes shopka-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.12);
+    opacity: 0.85;
+  }
+}
+@keyframes shopka-bounce {
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  40% {
+    transform: translateY(-8px);
+    opacity: 1;
+  }
+}
