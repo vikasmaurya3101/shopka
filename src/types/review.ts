@@ -5,6 +5,13 @@ export interface ReviewUserData {
   profileImage: string | null;
 }
 
+export interface ReviewMediaData {
+  id: string;
+  url: string;
+  type: "IMAGE" | "VIDEO";
+  publicId: string | null;
+}
+
 export interface ReviewData {
   id: string;
   userId: string;
@@ -16,6 +23,7 @@ export interface ReviewData {
   createdAt: string;
   updatedAt: string;
   user: ReviewUserData;
+  media: ReviewMediaData[];
 }
 
 export interface RatingBreakdown {

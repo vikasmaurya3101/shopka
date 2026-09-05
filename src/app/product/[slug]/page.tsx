@@ -7,7 +7,7 @@ import { formatCurrency } from "@/lib/utils/currency";
 import ProductImageGallery from "@/components/product/ProductImageGallery";
 import ProductPrice from "@/components/product/ProductPrice";
 import ProductRating from "@/components/product/ProductRating";
-import ProductGrid from "@/components/product/ProductGrid";
+import SimilarProducts from "@/components/product/SimilarProducts";
 import ProductActions from "@/components/product/ProductActions";
 import ProductReviews from "@/components/product/ProductReviews";
 import TrackProductView from "@/components/product/TrackProductView";
@@ -209,14 +209,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
           initialTotalPages={reviewsPage.totalPages}
         />
 
-        {product.relatedProducts && product.relatedProducts.length > 0 && (
-          <section className="mt-8">
-            <h2 className="mb-4 text-xl font-bold text-gray-800">
-              You may also like
-            </h2>
-            <ProductGrid products={product.relatedProducts} />
-          </section>
-        )}
+        <SimilarProducts products={product.relatedProducts ?? []} />
       </div>
     </main>
   );

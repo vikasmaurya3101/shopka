@@ -827,16 +827,23 @@ class ProductRepository {
     async getProductReviews(
     productId: string,
     page = 1,
-    limit = 10
+    limit = 10,
+    filter = "all"
   ) {
     const skip = (page - 1) * limit;
 
+    // Build where clause based on filter
+    const ratingNum = parseInt(filter);
+    const where: Record<string, unknown> = { productId };
+    if (!isNaN(ratingNum) && ratingNum >= 1 && ratingNum <= 5) {
+      where.rating = ratingNum;
+    } else if (filter === "photos") {
+      where.media = { some: {} };
+    }
+
     const [reviews, total] = await prisma.$transaction([
       prisma.review.findMany({
-        where: {
-          productId,
-        },
-
+        where,
         include: {
           user: {
             select: {
@@ -846,22 +853,13 @@ class ProductRepository {
               profileImage: true,
             },
           },
+          media: true,
         },
-
-        orderBy: {
-          createdAt: "desc",
-        },
-
+        orderBy: { createdAt: "desc" },
         skip,
-
         take: limit,
       }),
-
-      prisma.review.count({
-        where: {
-          productId,
-        },
-      }),
+      prisma.review.count({ where }),
     ]);
 
     return {

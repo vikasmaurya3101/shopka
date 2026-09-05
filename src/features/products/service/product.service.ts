@@ -591,12 +591,14 @@ class ProductService {
   async getProductReviews(
     productId: string,
     page = 1,
-    limit = 10
+    limit = 10,
+    filter = "all"
   ) {
     return productRepository.getProductReviews(
       productId,
       page,
-      limit
+      limit,
+      filter
     );
   }
 

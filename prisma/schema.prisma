@@ -47,6 +47,7 @@ model User {
   reviews          Review[]
   seller           Seller?
   wishlist         Wishlist?
+  qa               ProductQA[]
 
   @@index([role])
   @@index([isActive])
@@ -235,6 +236,7 @@ model Product {
   subCategory      SubCategory?       @relation(fields: [subCategoryId], references: [id])
   reviews          Review[]
   wishlistItems    WishlistItem[]
+  qa               ProductQA[]
 
   @@index([categoryId])
   @@index([subCategoryId])
@@ -277,6 +279,7 @@ model Review {
   product            Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  media              ReviewMedia[]
   @@unique([userId, productId])
   @@index([productId])
   @@index([rating])
@@ -625,4 +628,40 @@ enum BannerPosition {
   HOME_BOTTOM
   CATEGORY
   CHECKOUT
+}
+
+model ReviewMedia {
+  id        String   @id @default(cuid())
+  reviewId  String
+  url       String
+  type      ReviewMediaType @default(IMAGE)
+  publicId  String?
+  createdAt DateTime @default(now())
+  review    Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@index([reviewId])
+  @@map("review_media")
+}
+
+model ProductQA {
+  id         String   @id @default(cuid())
+  productId  String
+  userId     String
+  question   String
+  answer     String?
+  answeredBy String?
+  answeredAt DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([userId])
+  @@map("product_qa")
+}
+
+enum ReviewMediaType {
+  IMAGE
+  VIDEO
 }
