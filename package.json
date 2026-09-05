@@ -9,6 +9,7 @@
     "lint": "eslint",
     "seed": "tsx prisma/seed.ts",
     "seed:admin": "tsx prisma/seed-admin.ts",
+    "seed:settings": "tsx prisma/seed-settings.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

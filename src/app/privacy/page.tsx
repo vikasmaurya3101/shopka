@@ -1,15 +1,10 @@
 import type { Metadata } from "next";
 import { getPublicSettings, resolveContactEmail } from "@/lib/settings";
+import { GRIEVANCE_OFFICER } from "@/lib/company";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
   description: "How Shopka collects, uses, shares, and protects your personal information.",
-};
-
-/** Kept in step with the Grievance Officer named in the Terms of Service. */
-const GRIEVANCE_OFFICER = {
-  name: "Vikas Maurya",
-  email: "support@shopka.in",
 };
 
 export default async function PrivacyPage() {

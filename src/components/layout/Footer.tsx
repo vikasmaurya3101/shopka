@@ -5,6 +5,7 @@ import {
   buildWhatsAppLink,
   resolveContactEmail,
 } from "@/lib/settings";
+import { COMPANY } from "@/lib/company";
 import {
   buildTelLink,
   resolveSocialLinks,
@@ -207,12 +208,12 @@ export default async function Footer() {
           Made with ❤️ in India
         </p>
         <p className="mt-1.5 text-gray-500">
-          Operated by Vikas Maurya |{" "}
+          Operated by {COMPANY.operatorName} |{" "}
           <a
-            href="mailto:support@shopka.in"
+            href={`mailto:${COMPANY.operatorEmail}`}
             className="hover:text-gray-300 hover:underline"
           >
-            support@shopka.in
+            {COMPANY.operatorEmail}
           </a>{" "}
           | India
         </p>

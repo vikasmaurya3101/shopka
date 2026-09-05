@@ -1,16 +1,11 @@
 import type { Metadata } from "next";
 import { getPublicSettings, resolveContactEmail } from "@/lib/settings";
+import { GRIEVANCE_OFFICER } from "@/lib/company";
 
 export const metadata: Metadata = {
   title: "Terms of Service | Shopka",
   description:
     "The terms governing your use of Shopka (shopka.in) — accounts, orders and pricing, Cash on Delivery and online payments, WhatsApp updates, returns, grievance redressal, and governing law.",
-};
-
-/** Named point of contact required by the Consumer Protection (E-Commerce) Rules, 2020. */
-const GRIEVANCE_OFFICER = {
-  name: "Vikas Maurya",
-  email: "support@shopka.in",
 };
 
 export default async function TermsPage() {
