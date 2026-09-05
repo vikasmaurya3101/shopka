@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { unstable_cache } from "next/cache";
+import Script from "next/script"; // ← ADD THIS
 import "./globals.css";
 import AuthProvider from "@/providers/AuthProvider";
 import ThemeProvider from "@/providers/ThemeProvider";
@@ -72,6 +73,20 @@ export default async function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+      {/* ↓ GA4 Scripts — ADD THESE */}
+      <Script
+        src="https://www.googletagmanager.com/gtag/js?id=G-9SNNRZCYEF"
+        strategy="afterInteractive"
+      />
+      <Script id="google-analytics" strategy="afterInteractive">
+        {`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-9SNNRZCYEF');
+        `}
+      </Script>
+      {/* ↑ GA4 Scripts END */}
       <body className="min-h-full flex flex-col">
         <ThemeProvider>
           <AuthProvider>
