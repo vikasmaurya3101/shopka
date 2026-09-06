@@ -22,8 +22,8 @@ const prisma = new PrismaClient();
 // page reads this through the settings table, not a hardcoded string.
 const SETTINGS: Record<string, string> = {
   contact_email: "support@shopka.in",
-  contact_phone: "+91 9554754298",
-  whatsapp_number: "+91 9554754298",
+  contact_phone: "+91 9670022910",
+  whatsapp_number: "+91 9670022910",
   address: "281, Vikas, Budhni Road, Hinchhapur, Babhanjot, Gonda, Uttar Pradesh - 271312",
 };
 
