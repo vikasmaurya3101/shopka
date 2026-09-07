@@ -4,21 +4,20 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { Mail, MessageCircle, ShieldCheck } from "lucide-react";
-import { useAuth, type OtpChannel } from "@/hooks/useAuth";
+import { Mail, MessageCircle, ShieldCheck, Lock } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 import Logo from "@/components/shared/Logo";
 import OtpInput from "@/components/auth/OtpInput";
 import WhatsappConsentCheckbox from "@/components/shared/WhatsappConsentCheckbox";
 
 type Step = "phone" | "otp" | "profile";
 
-const WHATSAPP_WAIT_SECONDS = 30;
+/** How long the user waits before they can resend. */
+const RESEND_COOLDOWN_SECONDS = 60;
 
-/**
- * `logoUrl` is resolved server-side (from the `logo_url` site setting) and
- * passed in by the login page, so the card mark matches the navbar's real
- * logo on first paint instead of flashing the bundled default.
- */
+/** After this many seconds the lock message auto-resets to phone step. */
+const LOCK_DURATION_SECONDS = 30 * 60; // 30 minutes — matches server
+
 export default function LoginForm({ logoUrl }: { logoUrl: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -36,39 +35,38 @@ export default function LoginForm({ logoUrl }: { logoUrl: string }) {
   const [whatsappConsent, setWhatsappConsent] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
-  // Delivery-channel state for the WhatsApp-first, SMS-fallback OTP flow.
-  const [channel, setChannel] = useState<OtpChannel>("whatsapp");
-  const [whatsappTriedFirst, setWhatsappTriedFirst] = useState(false);
-  const [fallbackFired, setFallbackFired] = useState(false);
-  const [countdown, setCountdown] = useState(0);
+  // Resend cooldown (60s between each resend)
   const [resendCooldown, setResendCooldown] = useState(0);
 
-  // Tick the "waiting for WhatsApp" countdown once a second.
-  useEffect(() => {
-    if (step !== "otp" || channel !== "whatsapp" || fallbackFired || countdown <= 0) return;
-    const timer = setTimeout(() => setCountdown((s) => s - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [step, channel, fallbackFired, countdown]);
+  // How many OTP attempts are left (max 3 per 30 min)
+  const [attemptsLeft, setAttemptsLeft] = useState<number | null>(null);
 
-  // 30s with no confirmed delivery on WhatsApp → fall back to SMS automatically.
-  useEffect(() => {
-    if (step === "otp" && channel === "whatsapp" && !fallbackFired && countdown === 0) {
-      void handleSmsFallback(true);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [countdown, step, channel, fallbackFired]);
+  // Locked state — when server says 429, show a locked screen
+  const [lockedFor, setLockedFor] = useState(0); // seconds remaining in lock
 
-  // Generic anti-spam cooldown for the resend control, independent of the
-  // WhatsApp wait timer above.
+  // Tick resend cooldown
   useEffect(() => {
     if (resendCooldown <= 0) return;
-    const timer = setTimeout(() => setResendCooldown((s) => s - 1), 1000);
-    return () => clearTimeout(timer);
+    const t = setTimeout(() => setResendCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(t);
   }, [resendCooldown]);
+
+  // Tick lock countdown
+  useEffect(() => {
+    if (lockedFor <= 0) return;
+    const t = setTimeout(() => setLockedFor((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [lockedFor]);
 
   function resetOtpBoxes() {
     setOtp("");
     setOtpInputKey((k) => k + 1);
+  }
+
+  function formatLockTime(secs: number) {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m}:${s.toString().padStart(2, "0")}`;
   }
 
   async function handleSendOtp(e: React.FormEvent) {
@@ -81,36 +79,30 @@ export default function LoginForm({ logoUrl }: { logoUrl: string }) {
     const result = await sendOtp(digitsOnly, "whatsapp");
 
     if (result.success) {
-      const usedChannel = result.channelUsed ?? "whatsapp";
-      setChannel(usedChannel);
-      setWhatsappTriedFirst(usedChannel === "whatsapp");
-      setFallbackFired(usedChannel !== "whatsapp");
-      setCountdown(usedChannel === "whatsapp" ? WHATSAPP_WAIT_SECONDS : 0);
-      setResendCooldown(WHATSAPP_WAIT_SECONDS);
+      setAttemptsLeft(result.attemptsLeft ?? null);
+      setResendCooldown(RESEND_COOLDOWN_SECONDS);
       resetOtpBoxes();
       setStep("otp");
-    }
-  }
-
-  async function handleSmsFallback(isAutomatic: boolean) {
-    if (isSubmitting) return;
-
-    setFallbackFired(true);
-    setChannel("sms");
-
-    const digitsOnly = phone.replace(/\D/g, "");
-    const result = await sendOtp(digitsOnly, "sms");
-
-    if (result.success) {
-      resetOtpBoxes();
-      setResendCooldown(WHATSAPP_WAIT_SECONDS);
-      if (!isAutomatic) setLocalError(null);
+    } else if (result.locked) {
+      setLockedFor(result.retryAfterSeconds ?? LOCK_DURATION_SECONDS);
+      setLocalError(null);
     }
   }
 
   async function handleResend() {
     if (resendCooldown > 0 || isSubmitting) return;
-    await handleSmsFallback(false);
+
+    setLocalError(null);
+    const digitsOnly = phone.replace(/\D/g, "");
+    const result = await sendOtp(digitsOnly, "whatsapp");
+
+    if (result.success) {
+      setAttemptsLeft(result.attemptsLeft ?? null);
+      resetOtpBoxes();
+      setResendCooldown(RESEND_COOLDOWN_SECONDS);
+    } else if (result.locked) {
+      setLockedFor(result.retryAfterSeconds ?? LOCK_DURATION_SECONDS);
+    }
   }
 
   async function handleVerifyOtp(code: string) {
@@ -131,7 +123,6 @@ export default function LoginForm({ logoUrl }: { logoUrl: string }) {
 
   async function handleCompleteProfile(e: React.FormEvent) {
     e.preventDefault();
-
     if (!firstName.trim()) return;
 
     const digitsOnly = phone.replace(/\D/g, "");
@@ -150,16 +141,51 @@ export default function LoginForm({ logoUrl }: { logoUrl: string }) {
 
   function handleChangeNumber() {
     setStep("phone");
-    setChannel("whatsapp");
-    setFallbackFired(false);
-    setCountdown(0);
+    setLockedFor(0);
     setResendCooldown(0);
+    setAttemptsLeft(null);
     resetOtpBoxes();
     setLocalError(null);
   }
 
   const displayError = error || localError;
 
+  // ── Locked screen ──────────────────────────────────────────────────────
+  if (lockedFor > 0) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-50 via-white to-accent-50 px-4 py-10">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, ease: "easeOut" }}
+          className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-[0_20px_50px_-15px_rgba(214,38,111,0.25)] text-center"
+        >
+          <div className="flex justify-center mb-4">
+            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-red-50">
+              <Lock size={28} className="text-red-500" />
+            </span>
+          </div>
+          <h2 className="text-xl font-extrabold text-gray-800">Too many attempts</h2>
+          <p className="mt-2 text-sm text-gray-500">
+            OTP requests are blocked for this number. Please try again in:
+          </p>
+          <p className="mt-4 text-4xl font-bold text-brand tabular-nums">
+            {formatLockTime(lockedFor)}
+          </p>
+          <p className="mt-2 text-xs text-gray-400">minutes : seconds</p>
+          <button
+            type="button"
+            onClick={handleChangeNumber}
+            className="mt-6 text-sm text-gray-500 hover:text-brand"
+          >
+            Use a different number
+          </button>
+        </motion.div>
+      </main>
+    );
+  }
+
+  // ── Main login form ────────────────────────────────────────────────────
   return (
     <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-50 via-white to-accent-50 px-4 py-10">
       <motion.div
@@ -178,16 +204,13 @@ export default function LoginForm({ logoUrl }: { logoUrl: string }) {
 
         <p className="mt-1 text-center text-sm text-gray-500">
           {step === "phone" && "Login or sign up to continue"}
-          {step === "otp" &&
-            (channel === "whatsapp" ? (
-              <>
-                Code sent on <span className="font-semibold text-gray-700">WhatsApp</span> to +91 {phone}
-              </>
-            ) : (
-              <>
-                Code sent via <span className="font-semibold text-gray-700">SMS</span> to +91 {phone}
-              </>
-            ))}
+          {step === "otp" && (
+            <>
+              Code sent on{" "}
+              <span className="font-semibold text-gray-700">WhatsApp</span> to +91{" "}
+              {phone}
+            </>
+          )}
           {step === "profile" && "Tell us a bit about you"}
         </p>
 
@@ -215,9 +238,7 @@ export default function LoginForm({ logoUrl }: { logoUrl: string }) {
             >
               <form onSubmit={handleSendOtp} className="mt-6 space-y-4">
                 <div className="flex items-center rounded-lg border px-4 py-3 focus-within:border-brand">
-                  <span className="mr-2 text-sm font-medium text-gray-500">
-                    +91
-                  </span>
+                  <span className="mr-2 text-sm font-medium text-gray-500">+91</span>
                   <input
                     type="tel"
                     inputMode="numeric"
@@ -241,7 +262,7 @@ export default function LoginForm({ logoUrl }: { logoUrl: string }) {
 
                 <p className="flex items-center justify-center gap-1.5 text-center text-xs text-gray-400">
                   <MessageCircle size={13} className="text-green-600" />
-                  We&apos;ll verify via WhatsApp, with SMS as backup
+                  We&apos;ll send you a verification code on WhatsApp
                 </p>
               </form>
 
@@ -286,38 +307,25 @@ export default function LoginForm({ logoUrl }: { logoUrl: string }) {
                 {isSubmitting ? "Verifying..." : "Verify OTP"}
               </button>
 
-              <div className="space-y-2 text-center">
-                {channel === "whatsapp" && !fallbackFired ? (
-                  <>
-                    <p className="text-xs text-gray-400">
-                      Didn&apos;t get it on WhatsApp? We&apos;ll send it via SMS automatically.
-                    </p>
-                    <button
-                      type="button"
-                      disabled
-                      className="text-sm font-semibold text-gray-400"
-                    >
-                      Send on SMS instead (0:{countdown.toString().padStart(2, "0")})
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    {whatsappTriedFirst && (
-                      <p className="text-xs text-gray-400">
-                        We&apos;ve also sent your code via SMS, just in case.
-                      </p>
-                    )}
-                    <button
-                      type="button"
-                      onClick={handleResend}
-                      disabled={resendCooldown > 0 || isSubmitting}
-                      className="text-sm font-semibold text-brand hover:underline disabled:text-gray-400 disabled:no-underline"
-                    >
-                      {resendCooldown > 0
-                        ? `Resend code (0:${resendCooldown.toString().padStart(2, "0")})`
-                        : "Resend via SMS"}
-                    </button>
-                  </>
+              {/* Resend + attempts left */}
+              <div className="space-y-1.5 text-center">
+                <button
+                  type="button"
+                  onClick={handleResend}
+                  disabled={resendCooldown > 0 || isSubmitting}
+                  className="text-sm font-semibold text-brand hover:underline disabled:text-gray-400 disabled:no-underline"
+                >
+                  {resendCooldown > 0
+                    ? `Resend OTP in 0:${resendCooldown.toString().padStart(2, "0")}`
+                    : "Resend OTP on WhatsApp"}
+                </button>
+
+                {attemptsLeft !== null && attemptsLeft <= 2 && (
+                  <p className="text-xs text-amber-600">
+                    {attemptsLeft === 0
+                      ? "No resends left. Please wait 30 minutes."
+                      : `${attemptsLeft} resend${attemptsLeft === 1 ? "" : "s"} left before 30-min lock`}
+                  </p>
                 )}
               </div>
 
@@ -365,7 +373,8 @@ export default function LoginForm({ logoUrl }: { logoUrl: string }) {
                   className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold text-gray-700"
                 >
                   <Mail size={15} className="text-brand" />
-                  Email <span className="font-normal text-gray-400">(optional)</span>
+                  Email{" "}
+                  <span className="font-normal text-gray-400">(optional)</span>
                 </label>
                 <input
                   id="signup-email"

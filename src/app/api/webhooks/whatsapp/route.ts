@@ -12,7 +12,7 @@ import { authRepository } from "@/features/auth/repositories/auth.repository";
  * unenforceable: nothing was listening to inbound messages at all.
  *
  * Point your BSP at `POST /api/webhooks/whatsapp`:
- *  - AiSensy: Manage > Integrations (or Settings > Webhook) > set the URL to
+ *  - Fast2SMS: Dashboard > WhatsApp Manager > Webhooks > set the URL to
  *    `https://shopka.in/api/webhooks/whatsapp?token=<WHATSAPP_WEBHOOK_TOKEN>`.
  *  - Meta Cloud API direct: use the same URL, set `WHATSAPP_WEBHOOK_TOKEN` as
  *    the Verify Token and subscribe to the `messages` field. GET below answers
@@ -63,9 +63,9 @@ function isStopRequest(text: string): boolean {
 }
 
 /**
- * Pulls (phone, text) pairs out of whichever envelope arrived. Meta's Cloud API
- * shape and AiSensy's flatter shape are both handled, because AiSensy's payload
- * format is not contractually stable and a missed opt-out is a policy breach.
+ * Pulls (phone, text) pairs out of whichever envelope arrived. Both Meta's
+ * Cloud API shape and Fast2SMS's wrapper shape are handled — a missed opt-out
+ * is a policy breach so we cast a wide net.
  */
 function extractMessages(payload: unknown): InboundMessage[] {
   const out: InboundMessage[] = [];

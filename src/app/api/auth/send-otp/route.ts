@@ -1,33 +1,14 @@
-import {
-  NextRequest,
-  NextResponse,
-} from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { sendOtpSchema } from "@/features/auth/validators/auth.validator";
+import { otpService } from "@/features/auth/services/otp.service";
+import { otpRateLimiter, OTP_PHONE_MAX, OTP_PHONE_WINDOW_MS } from "@/features/auth/services/otp-rate-limit.service";
+import { authRepository } from "@/features/auth/repositories/auth.repository";
 
-import {
-  sendOtpSchema,
-} from "@/features/auth/validators/auth.validator";
-
-import {
-  otpService,
-} from "@/features/auth/services/otp.service";
-
-import {
-  otpRateLimiter,
-} from "@/features/auth/services/otp-rate-limit.service";
-
-export async function POST(
-  request: NextRequest
-) {
+export async function POST(request: NextRequest) {
   try {
-    const body =
-      await request.json();
+    const body = await request.json();
+    const data = sendOtpSchema.parse(body);
 
-    const data =
-      sendOtpSchema.parse(body);
-
-    // Unauthenticated endpoint that makes us send a WhatsApp/SMS message to an
-    // arbitrary number, so it is throttled by number and by caller IP before
-    // anything is sent. See otp-rate-limit.service.ts for why both are needed.
     const ip = otpRateLimiter.extractIp(request.headers);
     const decision = await otpRateLimiter.check(data.phone, ip);
 
@@ -36,6 +17,8 @@ export async function POST(
         {
           success: false,
           message: decision.message ?? "Too many OTP requests.",
+          locked: true,
+          retryAfterSeconds: decision.retryAfterSeconds,
         },
         {
           status: 429,
@@ -46,36 +29,29 @@ export async function POST(
       );
     }
 
-    // Counted before delivery is attempted: a provider that errors or hangs
-    // must not hand out free retries.
     await otpRateLimiter.record(data.phone, ip);
 
-    const result = await otpService.sendOtp(
+    await otpService.sendOtp(data.phone, "LOGIN", "whatsapp");
+
+    // Tell the UI how many attempts are left in this window
+    const usedCount = await authRepository.countOtpRequestsByPhone(
       data.phone,
-      "LOGIN",
-      data.channel ?? "whatsapp"
+      OTP_PHONE_WINDOW_MS
     );
+    const attemptsLeft = Math.max(0, OTP_PHONE_MAX - usedCount);
 
     return NextResponse.json({
       success: true,
-      message:
-        result.channelUsed === "whatsapp"
-          ? "OTP sent on WhatsApp."
-          : "OTP sent via SMS.",
-      channelUsed: result.channelUsed,
+      message: "OTP sent on WhatsApp.",
+      channelUsed: "whatsapp",
+      attemptsLeft,
     });
   } catch (error) {
     console.error(error);
 
     return NextResponse.json(
-      {
-        success: false,
-        message:
-          "Unable to send OTP.",
-      },
-      {
-        status: 400,
-      }
+      { success: false, message: "Unable to send OTP." },
+      { status: 400 }
     );
   }
 }

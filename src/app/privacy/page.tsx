@@ -145,9 +145,8 @@ export default async function PrivacyPage() {
                 <strong>Razorpay</strong> — to take and refund online payments.
               </li>
               <li>
-                <strong>AiSensy</strong> (an authorized WhatsApp Business Solution
-                Provider on Meta&apos;s Cloud API) and{" "}
-                <strong>Message Central</strong> — to deliver WhatsApp and SMS
+                <strong>Fast2SMS</strong> (an authorized WhatsApp Business Solution
+                Provider on Meta&apos;s Cloud API) — to deliver WhatsApp
                 one-time passwords and order updates. Meta Platforms processes
                 WhatsApp messages as part of delivering them.
               </li>

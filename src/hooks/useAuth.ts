@@ -10,13 +10,19 @@ import {
 import { getFirebaseAuth } from "@/lib/firebase";
 import { useSession } from "@/providers/SessionProvider";
 
-export type OtpChannel = "whatsapp" | "sms";
+export type OtpChannel = "whatsapp";
 
 interface ApiResult<T = unknown> {
   success: boolean;
   message?: string;
   isNewUser?: boolean;
   channelUsed?: OtpChannel;
+  /** Remaining OTP requests before 30-min lock (returned by send-otp). */
+  attemptsLeft?: number;
+  /** True when server responded 429 — number is locked. */
+  locked?: boolean;
+  /** Seconds until the lock expires. */
+  retryAfterSeconds?: number;
   data?: T;
 }
 
@@ -63,9 +69,7 @@ interface SessionUserResult {
 /**
  * Client hook wrapping the app's authentication flows:
  * - Phone + OTP: sendOtp(phone, channel) -> verifyOtp -> (completeProfile
- *   if new user). `channel` defaults to "whatsapp" (with automatic SMS
- *   fallback server-side); pass "sms" to force SMS directly, e.g. from
- *   the "Send on SMS instead" button.
+   * sendOtp(phone) -> verifyOtp -> (completeProfile if new user).
  * - addPhone: attaches/verifies a phone number on the current (logged-in)
  *   session — used by /add-phone, e.g. for legacy accounts without one.
  * - logout
@@ -79,12 +83,12 @@ export function useAuth() {
   const [error, setError] = useState<string | null>(null);
 
   const sendOtp = useCallback(
-    async (phone: string, channel: OtpChannel = "whatsapp") => {
+    async (phone: string, _channel: OtpChannel = "whatsapp") => {
       setIsSubmitting(true);
       setError(null);
 
       try {
-        const result = await postJson("/api/auth/send-otp", { phone, channel });
+        const result = await postJson("/api/auth/send-otp", { phone });
 
         if (!result.success) {
           setError(result.message ?? "Unable to send OTP.");

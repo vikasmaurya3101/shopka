@@ -1,62 +1,87 @@
 import { BaseOtpProvider } from "./otp.provider";
 
 /**
- * WhatsApp OTP delivery via AiSensy (https://aisensy.com), a WhatsApp
- * Business Solution Provider built on Meta's Cloud API.
+ * WhatsApp OTP delivery via Fast2SMS WhatsApp Business API.
  *
- * Setup (see WHATSAPP_SETUP.md):
- * 1. Create an AiSensy account and get your WhatsApp Business number live.
- * 2. Create + get Meta approval for an "Authentication" category template
- *    with a single body variable for the code (e.g. "{{1}} is your Shopka
- *    verification code.").
- * 3. In AiSensy: Campaigns > +Launch > API Campaign, pick that template,
- *    name the campaign, and set it Live.
- * 4. Put your API key + that campaign name in .env:
- *      WHATSAPP_API_KEY=<AiSensy API key from Manage > API Key>
- *      WHATSAPP_CAMPAIGN_NAME=<the API campaign name from step 3>
+ * Fast2SMS uses Meta's Cloud API underneath. They have two ways to send
+ * a template — "Simple" (GET with query params) and "META Format" (POST
+ * with Meta-style JSON). We use the Simple GET because it needs only a
+ * message_id + phone_number_id, both fetched once from the dashboard.
  *
- * Docs: https://wiki.aisensy.com/en/articles/11501889-api-reference-docs
+ * Endpoint:
+ *   GET https://www.fast2sms.com/dev/whatsapp
+ *   Header: authorization: <FAST2SMS_API_KEY>
+ *   Params: message_id, phone_number_id, numbers, variables_values
+ *
+ * Setup (.env):
+ *   FAST2SMS_API_KEY=<your Fast2SMS API key>
+ *   FAST2SMS_WA_PHONE_NUMBER_ID=<phone_number_id from Fast2SMS dashboard>
+ *   FAST2SMS_WA_MESSAGE_ID=<message_id of your OTP template>
+ *
+ * How to get message_id & phone_number_id:
+ *   GET https://www.fast2sms.com/dev/dlt_manager/whatsapp?type=template
+ *   Header: authorization: <FAST2SMS_API_KEY>
+ *   Find your approved OTP template and note: message_id, phone_number_id
+ *
+ * The OTP template must have one variable {{1}} in the body.
+ * Example: "{{1}} is your Shopka OTP. Valid for 5 minutes. Do not share."
+ *
+ * Docs: https://docs.fast2sms.com/reference/sendwhatsappmessage
  */
-const DEFAULT_AISENSY_URL = "https://backend.aisensy.com/campaign/t1/api/v2";
+
+const FAST2SMS_WA_URL = "https://www.fast2sms.com/dev/whatsapp";
 
 export class WhatsAppProvider extends BaseOtpProvider {
   isConfigured(): boolean {
-    return Boolean(process.env.WHATSAPP_API_KEY && process.env.WHATSAPP_CAMPAIGN_NAME);
+    return Boolean(
+      process.env.FAST2SMS_API_KEY &&
+      process.env.FAST2SMS_WA_PHONE_NUMBER_ID &&
+      process.env.FAST2SMS_WA_MESSAGE_ID
+    );
   }
 
   async send(phone: string, otp: string): Promise<void> {
-    const apiKey = process.env.WHATSAPP_API_KEY;
-    const campaignName = process.env.WHATSAPP_CAMPAIGN_NAME;
-    const apiUrl = process.env.WHATSAPP_API_URL || DEFAULT_AISENSY_URL;
+    const apiKey = process.env.FAST2SMS_API_KEY;
+    const phoneNumberId = process.env.FAST2SMS_WA_PHONE_NUMBER_ID;
+    const messageId = process.env.FAST2SMS_WA_MESSAGE_ID;
 
-    if (!apiKey || !campaignName) {
+    if (!apiKey || !phoneNumberId || !messageId) {
       throw new Error(
-        "WhatsApp provider is not configured. Set WHATSAPP_API_KEY and " +
-          "WHATSAPP_CAMPAIGN_NAME — see WHATSAPP_SETUP.md."
+        "Fast2SMS WhatsApp is not configured. Set FAST2SMS_API_KEY, " +
+        "FAST2SMS_WA_PHONE_NUMBER_ID, and FAST2SMS_WA_MESSAGE_ID in .env."
       );
     }
 
+    // Fast2SMS accepts 10-digit numbers only (no country code)
     const digits = phone.replace(/\D/g, "");
-    const destination = digits.startsWith("91") ? `+${digits}` : `+91${digits}`;
+    const mobile = digits.length === 12 && digits.startsWith("91")
+      ? digits.slice(2)
+      : digits.slice(-10);
 
-    const response = await fetch(apiUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        apiKey,
-        campaignName,
-        destination,
-        userName: destination,
-        templateParams: [otp],
-      }),
+    const params = new URLSearchParams({
+      message_id: messageId,
+      phone_number_id: phoneNumberId,
+      numbers: mobile,
+      variables_values: otp, // fills {{1}} in the template body
+    });
+
+    const response = await fetch(`${FAST2SMS_WA_URL}?${params.toString()}`, {
+      method: "GET",
+      headers: {
+        authorization: apiKey,
+        "cache-control": "no-cache",
+      },
     });
 
     const json = await response.json().catch(() => null);
 
-    if (!response.ok || json?.success === false) {
+    // Fast2SMS returns { return: true } on success
+    if (!response.ok || json?.return === false) {
       throw new Error(
-        `WhatsApp OTP send failed (${response.status}): ${
-          json?.message ?? (await response.text().catch(() => "Unknown error"))
+        `Fast2SMS WhatsApp OTP send failed (${response.status}): ${
+          Array.isArray(json?.message)
+            ? json.message[0]
+            : (json?.message ?? "Unknown error")
         }`
       );
     }
