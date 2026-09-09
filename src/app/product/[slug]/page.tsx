@@ -3,12 +3,12 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import productService from "@/features/products/service/product.service";
 import { serializeData } from "@/lib/serialize";
-import { formatCurrency } from "@/lib/utils/currency";
 import ProductImageGallery from "@/components/product/ProductImageGallery";
 import ProductPrice from "@/components/product/ProductPrice";
 import ProductRating from "@/components/product/ProductRating";
 import SimilarProducts from "@/components/product/SimilarProducts";
 import ProductActions from "@/components/product/ProductActions";
+import DeliveryInfo from "@/components/product/DeliveryInfo";
 import ProductReviews from "@/components/product/ProductReviews";
 import TrackProductView from "@/components/product/TrackProductView";
 import Breadcrumbs from "@/components/shared/Breadcrumbs";
@@ -156,15 +156,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
               )}
             </p>
 
-            <div className="mt-4 flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-600">
-              <span>🚚</span>
-              <span>
-                Estimated Delivery by{" "}
-                <span className="font-medium text-gray-800">
-                  {getEstimatedDelivery()}
-                </span>
-              </span>
-            </div>
+            <DeliveryInfo
+              estimatedDeliveryLabel={getEstimatedDelivery()}
+              codAllowed={product.codAllowed}
+              freeDelivery={Number(product.shippingCharge) === 0}
+            />
 
             {product.seller?.businessName && (
               <p className="mt-2 text-xs text-gray-400">
@@ -180,16 +176,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 inStock={product.stock > 0}
               />
             </div>
-
-            {Number(product.shippingCharge) === 0 ? (
-              <p className="mt-3 text-xs font-semibold text-success">
-                Free Delivery on this item
-              </p>
-            ) : (
-              <p className="mt-3 text-xs font-semibold text-gray-600">
-                {formatCurrency(product.shippingCharge)} delivery charge
-              </p>
-            )}
 
             <div className="mt-8 border-t pt-6">
               <h2 className="mb-2 font-semibold text-gray-800">

@@ -203,6 +203,9 @@ export default async function Footer() {
       </div>
 
       <div className="border-t border-gray-800 py-5 text-center text-xs text-gray-600">
+        <p className="mb-2 text-gray-500">
+          We Accept: UPI &middot; Credit/Debit Cards &middot; Net Banking &middot; Cash on Delivery
+        </p>
         <p>
           © {new Date().getFullYear()} Shopka. All Rights Reserved. &nbsp;·&nbsp;
           Made with ❤️ in India
