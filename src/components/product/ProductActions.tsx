@@ -150,7 +150,7 @@ function PrimaryActions({
       <button
         onClick={onAddToCart}
         disabled={isMutating || isBuyingNow}
-        className="flex-1 rounded-xl border-2 border-brand py-3 font-semibold text-brand transition hover:bg-brand-50 disabled:opacity-60"
+        className="brand-glow flex-1 rounded-xl bg-brand py-3 font-semibold text-white transition hover:bg-brand-dark disabled:opacity-60"
       >
         {isMutating ? "Adding..." : "Add to Cart"}
       </button>
@@ -158,7 +158,7 @@ function PrimaryActions({
       <button
         onClick={onBuyNow}
         disabled={isMutating || isBuyingNow}
-        className="brand-glow flex-1 rounded-xl bg-brand py-3 font-semibold text-white transition hover:bg-brand-dark disabled:opacity-60"
+        className="flex-1 rounded-xl border-2 border-brand py-3 font-semibold text-brand transition hover:bg-brand-50 disabled:opacity-60"
       >
         {isBuyingNow ? "Please wait..." : "Buy Now"}
       </button>

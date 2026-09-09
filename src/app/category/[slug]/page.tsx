@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { prisma } from "@/lib/prisma";
 import ProductListClient from "@/components/product/ProductListClient";
+import Breadcrumbs from "@/components/shared/Breadcrumbs";
 
 interface CategoryPageProps {
   params: Promise<{ slug: string }>;
@@ -73,6 +74,13 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
       </div>
 
       <div className="mx-auto max-w-7xl p-4 sm:p-6">
+        <Breadcrumbs
+          items={[
+            { label: "Home", href: "/" },
+            { label: category.name },
+          ]}
+          className="mb-4"
+        />
         <ProductListClient filters={{ categoryId: category.id }} />
       </div>
     </main>

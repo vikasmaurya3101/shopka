@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { motion, type Variants } from "framer-motion";
-import { ShieldCheck, Sparkles, Star, Truck, Zap } from "lucide-react";
+import { RotateCcw, ShieldCheck, Sparkles, Star, Truck, Zap } from "lucide-react";
 
 const fadeUp: Variants = {
   hidden: { opacity: 0, y: 18 },
@@ -106,6 +106,27 @@ export default function Hero({
             >
               Browse All
             </Link>
+          </motion.div>
+
+          <motion.div
+            initial="hidden"
+            animate="show"
+            custom={0.4}
+            variants={fadeUp}
+            className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-medium text-white/80 sm:text-sm"
+          >
+            <span className="flex items-center gap-1.5">
+              <Truck size={15} className="text-gold" />
+              {card2Value}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <ShieldCheck size={15} className="text-gold" />
+              Secure UPI, Cards &amp; COD
+            </span>
+            <span className="flex items-center gap-1.5">
+              <RotateCcw size={15} className="text-gold" />
+              7-day easy returns
+            </span>
           </motion.div>
         </div>
 
