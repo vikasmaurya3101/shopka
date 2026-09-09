@@ -69,8 +69,6 @@ export default function Navbar({ logoUrl = "/brand/logo-128.png" }: { logoUrl?: 
 
   const QUICK_LINKS = [
     { label: "Saved Addresses", href: "/profile/addresses", icon: MapPin },
-    { label: "Wishlist", href: "/profile", icon: Heart },
-    { label: "Orders", href: "/orders", icon: Package },
     { label: "Contact Us", href: "/contact", icon: Mail },
     { label: "Help & Support", href: "/help", icon: HelpCircle },
   ];
@@ -235,51 +233,68 @@ export default function Navbar({ logoUrl = "/brand/logo-128.png" }: { logoUrl?: 
             </div>
           </form>
 
-          <div className="hidden items-center gap-6 lg:flex">
+          <div className="hidden items-center gap-1 lg:flex">
             {isAuthenticated ? (
               <button
                 onClick={logout}
-                className="tap-shrink font-medium transition hover:text-brand"
+                className="tap-shrink flex flex-col items-center gap-0.5 rounded-xl px-3 py-1.5 text-center transition hover:bg-brand-50 hover:text-brand"
               >
-                Logout ({user?.firstName ?? "Account"})
+                <User size={20} />
+                <span className="max-w-[84px] truncate text-[11px] font-semibold leading-none">
+                  {user?.firstName ?? "Account"}
+                </span>
               </button>
             ) : (
-              <Link href="/login" className="font-medium transition hover:text-brand">
-                Login
+              <Link
+                href="/login"
+                className="tap-shrink flex flex-col items-center gap-0.5 rounded-xl px-3 py-1.5 text-center transition hover:bg-brand-50 hover:text-brand"
+              >
+                <User size={20} />
+                <span className="text-[11px] font-semibold leading-none">Login</span>
               </Link>
             )}
 
             <Link
-              href="/cart"
-              className="tap-shrink relative flex items-center gap-2 transition hover:text-brand"
+              href="/profile"
+              className="tap-shrink flex flex-col items-center gap-0.5 rounded-xl px-3 py-1.5 text-center transition hover:bg-brand-50 hover:text-brand"
             >
-              <ShoppingCart size={20} />
-              Cart
-              <AnimatePresence>
-                {itemCount > 0 && (
-                  <motion.span
-                    key={itemCount}
-                    initial={{ scale: 0.4, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0.4, opacity: 0 }}
-                    transition={{ type: "spring", stiffness: 400, damping: 15 }}
-                    className="absolute -right-3 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-brand text-xs font-semibold text-white"
-                  >
-                    {itemCount > 9 ? "9+" : itemCount}
-                  </motion.span>
-                )}
-              </AnimatePresence>
+              <Heart size={20} />
+              <span className="text-[11px] font-semibold leading-none">Wishlist</span>
             </Link>
 
             <Link
-              href="/profile"
-              className="tap-shrink flex items-center gap-2 transition hover:text-brand"
+              href="/orders"
+              className="tap-shrink flex flex-col items-center gap-0.5 rounded-xl px-3 py-1.5 text-center transition hover:bg-brand-50 hover:text-brand"
             >
-              <User size={20} />
-              Profile
+              <Package size={20} />
+              <span className="text-[11px] font-semibold leading-none">Orders</span>
             </Link>
 
-            <div className="relative">
+            <Link
+              href="/cart"
+              className="tap-shrink relative flex flex-col items-center gap-0.5 rounded-xl px-3 py-1.5 text-center transition hover:bg-brand-50 hover:text-brand"
+            >
+              <span className="relative">
+                <ShoppingCart size={20} />
+                <AnimatePresence>
+                  {itemCount > 0 && (
+                    <motion.span
+                      key={itemCount}
+                      initial={{ scale: 0.4, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0.4, opacity: 0 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 15 }}
+                      className="absolute -right-2.5 -top-2 flex h-4.5 w-4.5 min-w-[18px] items-center justify-center rounded-full bg-brand px-1 text-[10px] font-semibold text-white"
+                    >
+                      {itemCount > 9 ? "9+" : itemCount}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </span>
+              <span className="text-[11px] font-semibold leading-none">Cart</span>
+            </Link>
+
+            <div className="relative ml-1 border-l pl-2">
               <button
                 onClick={() => setQuickMenuOpen((v) => !v)}
                 className="tap-shrink rounded-full p-1.5 transition hover:bg-brand-50 hover:text-brand"

@@ -71,6 +71,12 @@ body {
 
 /* Shared motion utilities ------------------------------------------- */
 
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
 @keyframes bm-fade-in {
   from {
     opacity: 0;
