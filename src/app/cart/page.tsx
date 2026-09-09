@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
-import { Minus, Plus, Tag, Trash2, X } from "lucide-react";
+import { Minus, Plus, ShoppingBag, Tag, Trash2, X } from "lucide-react";
 import { useCart } from "@/hooks/useCart";
 import { useSession } from "@/providers/SessionProvider";
 import { formatCurrency } from "@/lib/utils/currency";
@@ -37,13 +37,17 @@ export default function CartPage() {
 
   if (items.length === 0) {
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-gray-50 p-6 text-center">
-        <h1 className="text-2xl font-bold text-gray-800">
-          Your cart is empty
-        </h1>
+      <main className="flex min-h-screen flex-col items-center justify-center gap-3 bg-gray-50 p-6 text-center">
+        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-brand-50">
+          <ShoppingBag size={32} className="text-brand" />
+        </div>
+        <h1 className="text-2xl font-bold text-gray-800">Your cart is empty</h1>
+        <p className="max-w-xs text-sm text-gray-500">
+          Looks like you haven&apos;t added anything yet. Let&apos;s fix that.
+        </p>
         <Link
           href="/"
-          className="rounded-lg bg-brand px-6 py-3 font-semibold text-white hover:bg-brand-dark"
+          className="mt-2 rounded-xl bg-brand px-6 py-3 font-semibold text-white transition hover:bg-brand-dark"
         >
           Continue Shopping
         </Link>
@@ -116,18 +120,18 @@ export default function CartPage() {
               return (
                 <div
                   key={item.id}
-                  className="flex gap-4 rounded-xl border bg-white p-4"
+                  className="flex gap-4 rounded-xl border bg-white p-4 transition hover:border-brand-100"
                 >
                   <Link
                     href={`/product/${item.product.slug}`}
-                    className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-gray-50"
+                    className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-gray-50"
                   >
                     <Image
                       src={thumbnail}
                       alt={item.product.name}
                       fill
-                      sizes="80px"
-                      className="object-contain p-1"
+                      sizes="96px"
+                      className="object-contain p-1.5"
                     />
                   </Link>
 
@@ -139,9 +143,26 @@ export default function CartPage() {
                       >
                         {item.product.name}
                       </Link>
-                      <p className="mt-1 font-semibold text-gray-900">
-                        {formatCurrency(item.product.sellingPrice)}
-                      </p>
+                      <div className="mt-1 flex items-center gap-2">
+                        <span className="font-semibold text-gray-900">
+                          {formatCurrency(item.product.sellingPrice)}
+                        </span>
+                        {Number(item.product.mrp) > Number(item.product.sellingPrice) && (
+                          <>
+                            <span className="text-xs text-gray-400 line-through">
+                              {formatCurrency(item.product.mrp)}
+                            </span>
+                            <span className="text-xs font-semibold text-success">
+                              {Math.round(
+                                ((Number(item.product.mrp) - Number(item.product.sellingPrice)) /
+                                  Number(item.product.mrp)) *
+                                  100
+                              )}
+                              % off
+                            </span>
+                          </>
+                        )}
+                      </div>
                     </div>
 
                     <div className="flex items-center justify-between">
@@ -186,7 +207,7 @@ export default function CartPage() {
             })}
           </div>
 
-          <div className="h-fit space-y-4">
+          <div className="h-fit space-y-4 lg:sticky lg:top-6">
             {/* Promo code */}
             <div className="rounded-xl border bg-white p-4">
               {coupon ? (
@@ -269,6 +290,15 @@ export default function CartPage() {
               >
                 Proceed to Checkout
               </Link>
+
+              {mrpTotal - subtotal > 0 && (
+                <div className="mt-4 flex items-center gap-2 rounded-lg bg-success-light px-3 py-2 text-sm font-medium text-success">
+                  <span>✅</span>
+                  <span>
+                    Yay! You&apos;re saving {formatCurrency(mrpTotal - subtotal + couponDiscount)} on this order
+                  </span>
+                </div>
+              )}
 
               {!isAuthenticated && (
                 <p className="mt-2 text-center text-xs text-gray-400">
