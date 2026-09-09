@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Minus, Pencil, Plus } from "lucide-react";
+import { Check, Minus, Pencil, Plus } from "lucide-react";
 import { useSession } from "@/providers/SessionProvider";
 import { useCart } from "@/hooks/useCart";
 import { AddressData } from "@/types/order";
@@ -488,31 +488,41 @@ export default function CheckoutPage() {
       <div className="mx-auto max-w-5xl">
         {/* Step indicator */}
         <div className="mb-6 flex items-center justify-center gap-3">
-          {(["review", "payment"] as const).map((s, i) => (
-            <div key={s} className="flex items-center gap-3">
-              <div className="flex flex-col items-center gap-1">
-                <div
-                  className={`flex h-8 w-8 items-center justify-center rounded-full border-2 text-sm font-semibold ${
-                    step === s
-                      ? "border-brand bg-brand text-white"
-                      : (s === "review" && step === "payment")
-                      ? "border-brand text-brand"
-                      : "border-gray-300 text-gray-400"
-                  }`}
-                >
-                  {i + 1}
+          {(["review", "payment"] as const).map((s, i) => {
+            const isCompleted = s === "review" && step === "payment";
+            const isCurrent = step === s;
+            return (
+              <div key={s} className="flex items-center gap-3">
+                <div className="flex flex-col items-center gap-1.5">
+                  <div
+                    className={`flex h-9 w-9 items-center justify-center rounded-full border-2 text-sm font-bold transition-colors ${
+                      isCurrent
+                        ? "border-brand bg-brand text-white shadow-[0_0_0_4px_rgba(214,38,111,0.15)]"
+                        : isCompleted
+                        ? "border-brand bg-brand text-white"
+                        : "border-gray-300 text-gray-400"
+                    }`}
+                  >
+                    {isCompleted ? <Check size={16} /> : i + 1}
+                  </div>
+                  <span
+                    className={`text-xs font-semibold ${
+                      isCurrent || isCompleted ? "text-brand" : "text-gray-400"
+                    }`}
+                  >
+                    {s === "review" ? "Review" : "Payment"}
+                  </span>
                 </div>
-                <span
-                  className={`text-xs font-medium ${
-                    step === s ? "text-brand" : "text-gray-400"
-                  }`}
-                >
-                  {s === "review" ? "Review" : "Payment"}
-                </span>
+                {i === 0 && (
+                  <div
+                    className={`mb-4 h-1 w-12 rounded-full transition-colors sm:w-24 ${
+                      isCompleted || step === "payment" ? "bg-brand" : "bg-gray-200"
+                    }`}
+                  />
+                )}
               </div>
-              {i === 0 && <div className="mb-4 h-px w-12 bg-gray-300 sm:w-24" />}
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {step === "review" && (
@@ -888,7 +898,7 @@ export default function CheckoutPage() {
             </div>
 
             {/* Price details */}
-            <div className="h-fit rounded-xl border bg-white p-5">
+            <div className="sticky top-6 h-fit rounded-xl border bg-white p-5 shadow-sm">
               <h2 className="mb-4 font-semibold text-gray-800">
                 Price Details ({items.length} {items.length === 1 ? "Item" : "Items"})
               </h2>
@@ -1042,7 +1052,7 @@ export default function CheckoutPage() {
               </div>
             </div>
 
-            <div className="h-fit rounded-xl border bg-white p-5">
+            <div className="sticky top-6 h-fit rounded-xl border bg-white p-5 shadow-sm">
               <h2 className="mb-4 font-semibold text-gray-800">
                 Price Details ({items.length} {items.length === 1 ? "Item" : "Items"})
               </h2>
