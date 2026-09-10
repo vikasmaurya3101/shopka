@@ -112,11 +112,28 @@ export default async function ProductPage({ params }: ProductPageProps) {
           />
 
           <div>
-            {product.brand && (
-              <p className="text-sm font-medium text-gray-400">
-                {product.brand.name}
-              </p>
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+              {product.brand && (
+                <p className="text-sm font-semibold uppercase tracking-wide text-gray-400">
+                  {product.brand.name}
+                </p>
+              )}
+              {product.isBestSeller && (
+                <span className="rounded-full bg-gold/15 px-2.5 py-0.5 text-[11px] font-bold text-gold-dark">
+                  🏆 Bestseller
+                </span>
+              )}
+              {product.isTrending && (
+                <span className="rounded-full bg-brand-50 px-2.5 py-0.5 text-[11px] font-bold text-brand">
+                  🔥 Trending
+                </span>
+              )}
+              {product.isNewArrival && (
+                <span className="rounded-full bg-success-light px-2.5 py-0.5 text-[11px] font-bold text-success">
+                  ✨ New Arrival
+                </span>
+              )}
+            </div>
 
             <h1 className="mt-1 text-2xl font-bold text-gray-900 sm:text-3xl">
               {product.name}
@@ -148,7 +165,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
               {product.stock === 0 ? (
                 <span className="font-semibold text-red-600">Out of stock</span>
               ) : product.stock <= 10 ? (
-                <span className="font-bold text-red-600">
+                <span className="inline-flex animate-pulse items-center gap-1 rounded-lg bg-red-50 px-2.5 py-1 font-bold text-red-600">
                   ⚠ Only {product.stock} left in stock — order soon!
                 </span>
               ) : (

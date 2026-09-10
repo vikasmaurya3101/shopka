@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Heart, Minus, Plus, Share2 } from "lucide-react";
+import { Heart, Minus, Plus, Share2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useCart } from "@/hooks/useCart";
 import { useWishlist } from "@/hooks/useWishlist";
@@ -112,7 +112,7 @@ export default function ProductActions({
           here since no ancestor of ProductActions sets a transform/filter
           that would create a new containing block, so no portal is needed. */}
       <div
-        className="fixed inset-x-0 bottom-0 z-40 flex gap-3 border-t border-gray-100 bg-white p-3 shadow-[0_-4px_16px_rgba(0,0,0,0.08)] sm:hidden"
+        className="fixed inset-x-0 bottom-0 z-50 flex gap-3 border-t border-gray-100 bg-white p-3 shadow-[0_-4px_16px_rgba(0,0,0,0.08)] sm:hidden"
         style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
       >
         <PrimaryActions {...primaryActionsProps} />
@@ -150,7 +150,7 @@ function PrimaryActions({
       <button
         onClick={onAddToCart}
         disabled={isMutating || isBuyingNow}
-        className="brand-glow flex-1 rounded-xl bg-brand py-3 font-semibold text-white transition hover:bg-brand-dark disabled:opacity-60"
+        className="flex-1 rounded-xl border-2 border-brand py-3 font-semibold text-brand transition active:scale-[0.98] hover:bg-brand-50 disabled:opacity-60"
       >
         {isMutating ? "Adding..." : "Add to Cart"}
       </button>
@@ -158,9 +158,14 @@ function PrimaryActions({
       <button
         onClick={onBuyNow}
         disabled={isMutating || isBuyingNow}
-        className="flex-1 rounded-xl border-2 border-brand py-3 font-semibold text-brand transition hover:bg-brand-50 disabled:opacity-60"
+        className="brand-glow group relative flex-1 overflow-hidden rounded-xl bg-brand py-3 font-bold text-white shadow-lg shadow-brand/30 transition active:scale-[0.98] hover:bg-brand-dark disabled:opacity-60"
       >
-        {isBuyingNow ? "Please wait..." : "Buy Now"}
+        {/* Shine sweep — purely decorative, loops on its own */}
+        <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/30 to-transparent group-hover:animate-[shimmer_1.1s_ease-in-out]" />
+        <span className="relative flex items-center justify-center gap-1.5">
+          <Sparkles size={16} className="fill-gold text-gold" />
+          {isBuyingNow ? "Please wait..." : "Buy Now"}
+        </span>
       </button>
     </>
   );
@@ -176,7 +181,9 @@ function WishlistButton({
   return (
     <button
       onClick={onClick}
-      className="rounded-lg border p-3 transition hover:bg-gray-50"
+      className={`tap-shrink rounded-full border p-3 transition hover:scale-110 ${
+        wishlisted ? "border-brand bg-brand-50" : "border-gray-200 hover:bg-gray-50"
+      }`}
       aria-label="Toggle wishlist"
     >
       <Heart
@@ -191,7 +198,7 @@ function ShareButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="rounded-lg border p-3 transition hover:bg-gray-50"
+      className="tap-shrink rounded-full border border-gray-200 p-3 transition hover:scale-110 hover:bg-gray-50"
       aria-label="Share product"
     >
       <Share2 size={20} className="text-gray-500" />
