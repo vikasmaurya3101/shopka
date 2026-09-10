@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useSession } from "@/providers/SessionProvider";
 import Loader from "@/components/ui/Loader";
+import MultiImageUploader, { ProductImageDraft } from "@/components/admin/MultiImageUploader";
 
 interface Category {
   id: string;
@@ -32,8 +33,8 @@ export default function EditProductPage() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  const [images, setImages] = useState<ProductImageDraft[]>([]);
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [subCategories, setSubCategories] = useState<SubCategory[]>([]);
@@ -50,7 +51,6 @@ export default function EditProductPage() {
     stock: "",
     estimatedDeliveryDays: "5",
     shippingCharge: "0",
-    imageUrl: "",
     isPublished: false,
     codAllowed: true,
   });
@@ -67,9 +67,27 @@ export default function EditProductPage() {
         }
 
         const p = json.data;
-        const thumb =
-          p.images?.find((img: { isThumbnail?: boolean }) => img.isThumbnail)
-            ?.url ?? p.images?.[0]?.url ?? "";
+
+        const existingImages: ProductImageDraft[] = (p.images ?? [])
+          .slice()
+          .sort(
+            (a: { displayOrder?: number }, b: { displayOrder?: number }) =>
+              (a.displayOrder ?? 0) - (b.displayOrder ?? 0)
+          )
+          .map((img: { url: string; altText?: string; isThumbnail?: boolean }, i: number) => ({
+            url: img.url,
+            altText: img.altText,
+            isThumbnail: !!img.isThumbnail,
+            displayOrder: i,
+          }));
+
+        // Guarantee exactly one thumbnail if the product had images but
+        // none were flagged (defensive — shouldn't normally happen).
+        if (existingImages.length > 0 && !existingImages.some((i) => i.isThumbnail)) {
+          existingImages[0].isThumbnail = true;
+        }
+
+        setImages(existingImages);
 
         setForm({
           name: p.name ?? "",
@@ -82,7 +100,6 @@ export default function EditProductPage() {
           stock: String(p.stock ?? "0"),
           estimatedDeliveryDays: String(p.estimatedDeliveryDays ?? 5),
           shippingCharge: String(p.shippingCharge ?? 0),
-          imageUrl: thumb,
           isPublished: !!p.isPublished,
           codAllowed: p.codAllowed !== false,
         });
@@ -126,36 +143,6 @@ export default function EditProductPage() {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsUploading(true);
-
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const res = await fetch("/api/admin/upload-image", {
-        method: "POST",
-        body: formData,
-      });
-      const json = await res.json();
-
-      if (!json.url) {
-        toast.error("Upload failed. Try again.");
-        return;
-      }
-
-      updateField("imageUrl", json.url);
-      toast.success("Image uploaded.");
-    } catch {
-      toast.error("Upload failed. Try again.");
-    } finally {
-      setIsUploading(false);
-    }
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setIsSaving(true);
@@ -177,9 +164,12 @@ export default function EditProductPage() {
           shippingCharge: Number(form.shippingCharge) || 0,
           isPublished: form.isPublished,
           codAllowed: form.codAllowed,
-          images: form.imageUrl
-            ? [{ url: form.imageUrl, isThumbnail: true, displayOrder: 0 }]
-            : undefined,
+          images: images.map((img, i) => ({
+            url: img.url,
+            altText: img.altText,
+            isThumbnail: img.isThumbnail,
+            displayOrder: i,
+          })),
         }),
       });
 
@@ -234,40 +224,7 @@ export default function EditProductPage() {
           onSubmit={handleSubmit}
           className="space-y-4 rounded-xl border bg-white p-5"
         >
-          {form.imageUrl && (
-            <img
-              src={form.imageUrl}
-              alt="Preview"
-              className="h-40 w-40 rounded-lg border object-cover"
-            />
-          )}
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              Upload Image
-            </label>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleFileUpload}
-              disabled={isUploading}
-              className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-brand"
-            />
-            {isUploading && (
-              <p className="mt-1 text-xs text-gray-500">Uploading...</p>
-            )}
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              Image URL (auto-filled after upload, or paste manually)
-            </label>
-            <input
-              value={form.imageUrl}
-              onChange={(e) => updateField("imageUrl", e.target.value)}
-              className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-brand"
-            />
-          </div>
+          <MultiImageUploader value={images} onChange={setImages} />
 
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">

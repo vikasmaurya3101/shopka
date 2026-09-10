@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useSession } from "@/providers/SessionProvider";
 import Loader from "@/components/ui/Loader";
+import MultiImageUploader, { ProductImageDraft } from "@/components/admin/MultiImageUploader";
 
 interface Category {
   id: string;
@@ -43,7 +44,7 @@ export default function NewProductPage() {
   const [linkUrl, setLinkUrl] = useState("");
   const [isFetchingLink, setIsFetchingLink] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
+  const [images, setImages] = useState<ProductImageDraft[]>([]);
 
   const [form, setForm] = useState({
     name: "",
@@ -56,7 +57,6 @@ export default function NewProductPage() {
     mrp: "",
     sellingPrice: "",
     stock: "10",
-    imageUrl: "",
     estimatedDeliveryDays: "5",
     shippingCharge: "0",
     isPublished: false,
@@ -137,44 +137,21 @@ export default function NewProductPage() {
         name: name ?? prev.name,
         slug: name ? slugify(name) : prev.slug,
         description: description ?? prev.description,
-        imageUrl: imageUrl ?? prev.imageUrl,
         mrp: price ? String(price) : prev.mrp,
         sellingPrice: price ? String(price) : prev.sellingPrice,
       }));
 
+      if (imageUrl) {
+        setImages((prev) =>
+          prev.length > 0
+            ? prev
+            : [{ url: imageUrl, isThumbnail: true, displayOrder: 0 }]
+        );
+      }
+
       toast.success("Fetched what we could â€” check every field before saving.");
     } finally {
       setIsFetchingLink(false);
-    }
-  }
-
-  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsUploading(true);
-
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const res = await fetch("/api/admin/upload-image", {
-        method: "POST",
-        body: formData,
-      });
-      const json = await res.json();
-
-      if (!json.url) {
-        toast.error("Upload failed. Try again.");
-        return;
-      }
-
-      updateField("imageUrl", json.url);
-      toast.success("Image uploaded.");
-    } catch {
-      toast.error("Upload failed. Try again.");
-    } finally {
-      setIsUploading(false);
     }
   }
 
@@ -214,9 +191,12 @@ export default function NewProductPage() {
           estimatedDeliveryDays: Number(form.estimatedDeliveryDays) || 5,
           shippingCharge: Number(form.shippingCharge) || 0,
           isPublished: form.isPublished,
-          images: form.imageUrl
-            ? [{ url: form.imageUrl, isThumbnail: true, displayOrder: 0 }]
-            : [],
+          images: images.map((img, i) => ({
+            url: img.url,
+            altText: img.altText,
+            isThumbnail: img.isThumbnail,
+            displayOrder: i,
+          })),
         }),
       });
 
@@ -289,40 +269,7 @@ export default function NewProductPage() {
           onSubmit={handleSubmit}
           className="space-y-4 rounded-xl border bg-white p-5"
         >
-          {form.imageUrl && (
-            <img
-              src={form.imageUrl}
-              alt="Preview"
-              className="h-40 w-40 rounded-lg border object-cover"
-            />
-          )}
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              Upload Image
-            </label>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleFileUpload}
-              disabled={isUploading}
-              className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-brand"
-            />
-            {isUploading && (
-              <p className="mt-1 text-xs text-gray-500">Uploading...</p>
-            )}
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              Image URL (auto-filled after upload, or paste manually)
-            </label>
-            <input
-              value={form.imageUrl}
-              onChange={(e) => updateField("imageUrl", e.target.value)}
-              className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-brand"
-            />
-          </div>
+          <MultiImageUploader value={images} onChange={setImages} />
 
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">
