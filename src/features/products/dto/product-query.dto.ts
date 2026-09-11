@@ -21,22 +21,22 @@ export const ProductQueryDto = z.object({
 
   categoryId: z
     .string()
-    .cuid()
+    .min(1)
     .optional(),
 
   subCategoryId: z
     .string()
-    .cuid()
+    .min(1)
     .optional(),
 
   brandId: z
     .string()
-    .cuid()
+    .min(1)
     .optional(),
 
   sellerId: z
     .string()
-    .cuid()
+    .min(1)
     .optional(),
 
   minPrice: z.coerce

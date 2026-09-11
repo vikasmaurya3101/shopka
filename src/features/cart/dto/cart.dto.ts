@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const AddCartItemDto = z.object({
-  productId: z.string().cuid(),
+  productId: z.string().min(1),
   quantity: z.coerce.number().int().min(1).max(50).default(1),
 });
 

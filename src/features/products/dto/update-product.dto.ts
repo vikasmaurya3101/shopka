@@ -34,24 +34,24 @@ export const UpdateProductDto = z.object({
 
   categoryId: z
     .string()
-    .cuid()
+    .min(1)
     .optional(),
 
   subCategoryId: z
     .string()
-    .cuid()
+    .min(1)
     .nullable()
     .optional(),
 
   brandId: z
     .string()
-    .cuid()
+    .min(1)
     .nullable()
     .optional(),
 
   sellerId: z
     .string()
-    .cuid()
+    .min(1)
     .nullable()
     .optional(),
 
@@ -140,7 +140,7 @@ export const UpdateProductDto = z.object({
   images: z
     .array(
       z.object({
-        id: z.string().cuid().optional(),
+        id: z.string().min(1).optional(),
         url: z.string().url(),
         altText: z.string().optional(),
         isThumbnail: z.boolean().optional(),

@@ -39,7 +39,7 @@ export async function GET() {
 }
 
 const UpdateStockDto = z.object({
-  productId: z.string().cuid(),
+  productId: z.string().min(1),
   stock: z.coerce.number().int().min(0),
 });
 

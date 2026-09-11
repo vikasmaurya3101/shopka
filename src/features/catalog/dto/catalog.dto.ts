@@ -16,7 +16,7 @@ export type UpdateCategoryDtoType = z.infer<typeof UpdateCategoryDto>;
 export const CreateSubCategoryDto = z.object({
   name: z.string().trim().min(2).max(100),
   slug: z.string().trim().min(2).max(120).optional(),
-  categoryId: z.string().cuid(),
+  categoryId: z.string().min(1),
   image: z.string().trim().url().optional().or(z.literal("")),
   isActive: z.coerce.boolean().default(true),
   displayOrder: z.coerce.number().int().default(0),

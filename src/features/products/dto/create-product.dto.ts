@@ -28,21 +28,21 @@ export const CreateProductDto = z.object({
     .min(3)
     .max(100),
 
-  categoryId: z.string().cuid(),
+  categoryId: z.string().min(1),
 
   subCategoryId: z
     .string()
-    .cuid()
+    .min(1)
     .optional(),
 
   brandId: z
     .string()
-    .cuid()
+    .min(1)
     .optional(),
 
   sellerId: z
     .string()
-    .cuid()
+    .min(1)
     .optional(),
 
   mrp: z.coerce

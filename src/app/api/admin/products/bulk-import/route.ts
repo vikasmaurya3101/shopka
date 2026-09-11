@@ -9,6 +9,7 @@ interface ImportRow {
   description: string;
   sku: string;
   category: string;
+  subCategory?: string;
   mrp: string | number;
   sellingPrice: string | number;
   stock?: string | number;
@@ -43,41 +44,70 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const categories = await prisma.category.findMany({
-    select: { id: true, name: true },
-  });
+  // Fetch all lookup data upfront
+  const [categories, subCategories, sellers, brands] = await Promise.all([
+    prisma.category.findMany({ select: { id: true, name: true } }),
+    prisma.subCategory.findMany({ select: { id: true, name: true, categoryId: true } }),
+    prisma.seller.findMany({ select: { id: true, businessName: true } }),
+    prisma.brand.findMany({ select: { id: true, name: true } }),
+  ]);
 
   const categoryByName = new Map(
     categories.map((c) => [c.name.trim().toLowerCase(), c.id])
   );
+  const subCategoryByName = new Map(
+    subCategories.map((s) => [s.name.trim().toLowerCase(), { id: s.id, categoryId: s.categoryId }])
+  );
+
+  // Default seller & brand (fallback to first available)
+  const defaultSellerId = sellers[0]?.id ?? undefined;
+  const defaultBrandId = brands.find(
+    (b) => b.name.toLowerCase() === "generic"
+  )?.id ?? brands[0]?.id ?? undefined;
 
   const results: { row: number; name: string; success: boolean; message: string }[] =
     [];
 
   for (let i = 0; i < rows.length; i++) {
     const raw = rows[i];
-    const rowNum = i + 2; // +2: header row + 1-indexed
+    const rowNum = i + 2;
 
-    const categoryId = categoryByName.get(
-      String(raw.category ?? "").trim().toLowerCase()
-    );
+    const categoryName = String(raw.category ?? "").trim().toLowerCase();
+    const categoryId = categoryByName.get(categoryName);
 
     if (!categoryId) {
       results.push({
         row: rowNum,
         name: raw.name ?? "",
         success: false,
-        message: `Unknown category "${raw.category}"`,
+        message: `Unknown category "${raw.category}". Available: ${categories.map((c) => c.name).join(", ")}`,
       });
       continue;
     }
 
+    // Optional subCategory lookup
+    let subCategoryId: string | undefined = undefined;
+    if (raw.subCategory) {
+      const subCategoryName = String(raw.subCategory).trim().toLowerCase();
+      const found = subCategoryByName.get(subCategoryName);
+      if (found && found.categoryId === categoryId) {
+        subCategoryId = found.id;
+      }
+    }
+
+    const baseSlug = slugify(raw.name ?? "");
+    // Make slug unique by appending SKU suffix
+    const slug = `${baseSlug}-${String(raw.sku ?? "").toLowerCase().replace(/[^a-z0-9]/g, "-")}`;
+
     const candidate = {
       name: raw.name,
-      slug: slugify(raw.name ?? ""),
+      slug,
       description: raw.description,
       sku: raw.sku,
       categoryId,
+      subCategoryId,
+      sellerId: defaultSellerId,
+      brandId: defaultBrandId,
       mrp: Number(raw.mrp),
       sellingPrice: Number(raw.sellingPrice),
       stock: raw.stock ? Number(raw.stock) : 0,

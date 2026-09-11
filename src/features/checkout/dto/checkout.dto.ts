@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const CheckoutDto = z.object({
-  addressId: z.string().cuid(),
+  addressId: z.string().min(1),
   paymentMethod: z.enum(["COD", "RAZORPAY", "UPI"]).default("COD"),
   // Present only when paymentMethod === "RAZORPAY", returned by the
   // Razorpay checkout modal after a successful payment.
