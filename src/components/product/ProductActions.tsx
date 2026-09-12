@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Heart, Minus, Plus, Share2, Sparkles } from "lucide-react";
+import { Heart, Minus, Plus, Share2, ShoppingCart, Sparkles, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { useCart } from "@/hooks/useCart";
 import { useWishlist } from "@/hooks/useWishlist";
@@ -27,27 +27,26 @@ export default function ProductActions({
   const { isWishlisted, toggleWishlist } = useWishlist();
   const [quantity, setQuantity] = useState(1);
   const [isBuyingNow, setIsBuyingNow] = useState(false);
+  const [justAdded, setJustAdded] = useState(false);
 
   const wishlisted = isWishlisted(productId);
 
   async function handleShare() {
     const url = `${window.location.origin}/product/${productSlug}`;
-
     if (navigator.share) {
-      try {
-        await navigator.share({ title: productName, url });
-      } catch {
-        // user cancelled the share sheet — nothing to do
-      }
+      try { await navigator.share({ title: productName, url }); } catch { /* cancelled */ }
       return;
     }
-
     await navigator.clipboard.writeText(url);
-    toast.success("Product link copied to clipboard");
+    toast.success("Link copied!");
   }
 
   async function handleAddToCart() {
-    await addToCart(productId, quantity);
+    const ok = await addToCart(productId, quantity);
+    if (ok) {
+      setJustAdded(true);
+      setTimeout(() => setJustAdded(false), 1800);
+    }
   }
 
   async function handleBuyNow() {
@@ -55,9 +54,7 @@ export default function ProductActions({
       router.push(`/login?redirect=/product/${productSlug}`);
       return;
     }
-
     setIsBuyingNow(true);
-
     try {
       const added = await addToCart(productId, quantity);
       if (added) router.push("/checkout");
@@ -66,71 +63,104 @@ export default function ProductActions({
     }
   }
 
-  const primaryActionsProps = {
-    inStock,
-    isMutating,
-    isBuyingNow,
-    onAddToCart: handleAddToCart,
-    onBuyNow: handleBuyNow,
-  };
-
   return (
     <>
       <div className="space-y-4">
-        <div className="flex items-center gap-3">
-          {inStock && (
-            <div className="flex items-center rounded-lg border">
+        {/* ── Qty stepper + wishlist + share ── */}
+        {inStock && (
+          <div className="flex items-center gap-3">
+            {/* Premium pill stepper */}
+            <div className="flex items-center gap-1 rounded-2xl bg-gray-100 p-1">
               <button
                 onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                className="p-3 hover:bg-gray-50"
+                disabled={quantity <= 1}
                 aria-label="Decrease quantity"
+                className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-gray-700 shadow-sm transition hover:bg-brand hover:text-white active:scale-90 disabled:opacity-40"
               >
-                <Minus size={16} />
+                <Minus size={15} />
               </button>
-              <span className="w-10 text-center font-medium">{quantity}</span>
+              <span className="w-9 text-center text-base font-bold text-gray-800">
+                {quantity}
+              </span>
               <button
                 onClick={() => setQuantity((q) => q + 1)}
-                className="p-3 hover:bg-gray-50"
                 aria-label="Increase quantity"
+                className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-gray-700 shadow-sm transition hover:bg-brand hover:text-white active:scale-90"
               >
-                <Plus size={16} />
+                <Plus size={15} />
               </button>
             </div>
-          )}
 
-          <WishlistButton wishlisted={wishlisted} onClick={() => toggleWishlist(productId)} />
-          <ShareButton onClick={handleShare} />
-        </div>
+            {/* Wishlist */}
+            <button
+              onClick={() => toggleWishlist(productId)}
+              aria-label="Toggle wishlist"
+              className={`tap-shrink flex h-11 w-11 items-center justify-center rounded-2xl border-2 transition hover:scale-110 active:scale-95 ${
+                wishlisted
+                  ? "border-brand bg-brand/5"
+                  : "border-gray-200 bg-white hover:border-brand/40"
+              }`}
+            >
+              <Heart
+                size={20}
+                className={wishlisted ? "fill-brand text-brand" : "text-gray-400"}
+              />
+            </button>
 
-        {/* Inline CTAs — desktop only; the sticky bar below takes over on mobile. */}
+            {/* Share */}
+            <button
+              onClick={handleShare}
+              aria-label="Share product"
+              className="tap-shrink flex h-11 w-11 items-center justify-center rounded-2xl border-2 border-gray-200 bg-white transition hover:scale-110 hover:border-brand/40 active:scale-95"
+            >
+              <Share2 size={18} className="text-gray-400" />
+            </button>
+          </div>
+        )}
+
+        {/* ── Desktop CTAs ── */}
         <div className="hidden gap-3 sm:flex">
-          <PrimaryActions {...primaryActionsProps} />
+          <CTAButtons
+            inStock={inStock}
+            isMutating={isMutating}
+            isBuyingNow={isBuyingNow}
+            justAdded={justAdded}
+            onAddToCart={handleAddToCart}
+            onBuyNow={handleBuyNow}
+          />
         </div>
       </div>
 
-      {/* Sticky mobile Add to Cart / Buy Now bar. Fixed positioning is safe
-          here since no ancestor of ProductActions sets a transform/filter
-          that would create a new containing block, so no portal is needed. */}
+      {/* ── Mobile sticky bar ── */}
       <div
-        className="fixed inset-x-0 bottom-0 z-50 flex gap-3 border-t border-gray-100 bg-white p-3 shadow-[0_-4px_16px_rgba(0,0,0,0.08)] sm:hidden"
-        style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+        className="fixed inset-x-0 bottom-0 z-50 flex gap-3 border-t border-gray-100 bg-white/95 px-4 py-3 shadow-[0_-6px_24px_rgba(0,0,0,0.10)] backdrop-blur-md sm:hidden"
+        style={{ paddingBottom: "max(0.75rem,env(safe-area-inset-bottom))" }}
       >
-        <PrimaryActions {...primaryActionsProps} />
+        <CTAButtons
+          inStock={inStock}
+          isMutating={isMutating}
+          isBuyingNow={isBuyingNow}
+          justAdded={justAdded}
+          onAddToCart={handleAddToCart}
+          onBuyNow={handleBuyNow}
+        />
       </div>
     </>
   );
 }
 
-function PrimaryActions({
+function CTAButtons({
   inStock,
   isMutating,
   isBuyingNow,
+  justAdded,
   onAddToCart,
   onBuyNow,
 }: {
   inStock: boolean;
   isMutating: boolean;
   isBuyingNow: boolean;
+  justAdded: boolean;
   onAddToCart: () => void;
   onBuyNow: () => void;
 }) {
@@ -138,7 +168,7 @@ function PrimaryActions({
     return (
       <button
         disabled
-        className="flex-1 rounded-xl bg-gray-300 py-3 font-semibold text-gray-600 sm:flex-none sm:px-10"
+        className="flex-1 cursor-not-allowed rounded-2xl bg-gray-100 py-3.5 font-semibold text-gray-400"
       >
         Out of Stock
       </button>
@@ -147,61 +177,43 @@ function PrimaryActions({
 
   return (
     <>
+      {/* Add to Cart */}
       <button
         onClick={onAddToCart}
         disabled={isMutating || isBuyingNow}
-        className="flex-1 rounded-xl border-2 border-brand py-3 font-semibold text-brand transition active:scale-[0.98] hover:bg-brand-50 disabled:opacity-60"
+        className={`group relative flex flex-1 items-center justify-center gap-2 overflow-hidden rounded-2xl border-2 py-3.5 font-bold transition active:scale-[0.97] disabled:opacity-60 ${
+          justAdded
+            ? "border-green-500 bg-green-50 text-green-600"
+            : "border-brand bg-white text-brand hover:bg-brand-50"
+        }`}
       >
-        {isMutating ? "Adding..." : "Add to Cart"}
+        <ShoppingCart
+          size={18}
+          className={`transition-transform group-hover:-translate-y-0.5 ${
+            justAdded ? "text-green-500" : "text-brand"
+          }`}
+        />
+        <span className="text-sm">
+          {isMutating ? "Adding…" : justAdded ? "Added ✓" : "Add to Cart"}
+        </span>
       </button>
 
+      {/* Buy Now */}
       <button
         onClick={onBuyNow}
         disabled={isMutating || isBuyingNow}
-        className="brand-glow group relative flex-1 overflow-hidden rounded-xl bg-brand py-3 font-bold text-white shadow-lg shadow-brand/30 transition active:scale-[0.98] hover:bg-brand-dark disabled:opacity-60"
+        className="group relative flex flex-1 items-center justify-center gap-2 overflow-hidden rounded-2xl bg-brand py-3.5 font-bold text-white shadow-lg shadow-brand/35 transition hover:bg-brand-dark active:scale-[0.97] disabled:opacity-60"
       >
-        {/* Shine sweep — purely decorative, loops on its own */}
-        <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/30 to-transparent group-hover:animate-[shimmer_1.1s_ease-in-out]" />
-        <span className="relative flex items-center justify-center gap-1.5">
-          <Sparkles size={16} className="fill-gold text-gold" />
-          {isBuyingNow ? "Please wait..." : "Buy Now"}
+        {/* Shimmer sweep */}
+        <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+        <span className="relative flex items-center gap-1.5 text-sm">
+          {isBuyingNow ? (
+            <><Zap size={16} className="animate-pulse" /> Please wait…</>
+          ) : (
+            <><Sparkles size={16} className="fill-yellow-300 text-yellow-300" /> Buy Now</>
+          )}
         </span>
       </button>
     </>
-  );
-}
-
-function WishlistButton({
-  wishlisted,
-  onClick,
-}: {
-  wishlisted: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`tap-shrink rounded-full border p-3 transition hover:scale-110 ${
-        wishlisted ? "border-brand bg-brand-50" : "border-gray-200 hover:bg-gray-50"
-      }`}
-      aria-label="Toggle wishlist"
-    >
-      <Heart
-        size={20}
-        className={wishlisted ? "fill-brand text-brand" : "text-gray-500"}
-      />
-    </button>
-  );
-}
-
-function ShareButton({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className="tap-shrink rounded-full border border-gray-200 p-3 transition hover:scale-110 hover:bg-gray-50"
-      aria-label="Share product"
-    >
-      <Share2 size={20} className="text-gray-500" />
-    </button>
   );
 }

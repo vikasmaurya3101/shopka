@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, MapPin, RotateCcw, Truck } from "lucide-react";
+import { CheckCircle2, MapPin, RotateCcw, ShieldCheck, Truck } from "lucide-react";
 
 interface DeliveryInfoProps {
   estimatedDeliveryLabel: string;
@@ -9,13 +9,6 @@ interface DeliveryInfoProps {
   freeDelivery: boolean;
 }
 
-/**
- * A pincode field that personalizes the delivery message once a valid
- * 6-digit code is entered. We don't have a real serviceability API, so this
- * intentionally never claims to "check" the pincode — it just confirms the
- * same estimate and COD eligibility we already show, addressed to that PIN.
- * Faking a live availability check would be a false claim to the shopper.
- */
 export default function DeliveryInfo({
   estimatedDeliveryLabel,
   codAllowed,
@@ -32,51 +25,76 @@ export default function DeliveryInfo({
   }
 
   return (
-    <div className="mt-4 rounded-xl border border-gray-100 bg-gray-50 p-3.5">
-      <form onSubmit={handleSubmit} className="flex items-center gap-2">
-        <div className="relative flex-1">
-          <MapPin size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            value={pincode}
-            onChange={(e) => {
-              setPincode(e.target.value.replace(/\D/g, "").slice(0, 6));
-              setConfirmedPincode(null);
-            }}
-            inputMode="numeric"
-            placeholder="Enter pincode for delivery date"
-            className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm outline-none transition focus:border-brand"
-          />
+    <div className="overflow-hidden rounded-2xl border border-gray-100 bg-gray-50">
+      {/* Pincode row */}
+      <div className="px-4 pt-4">
+        <form onSubmit={handleSubmit} className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <MapPin
+              size={15}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-brand"
+            />
+            <input
+              value={pincode}
+              onChange={(e) => {
+                setPincode(e.target.value.replace(/\D/g, "").slice(0, 6));
+                setConfirmedPincode(null);
+              }}
+              inputMode="numeric"
+              placeholder="Enter pincode for delivery date"
+              className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/10"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={!isValid}
+            className="shrink-0 rounded-xl border-2 border-brand px-4 py-2.5 text-sm font-bold text-brand transition hover:bg-brand hover:text-white disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-300"
+          >
+            Check
+          </button>
+        </form>
+
+        {/* Confirmed delivery message */}
+        {confirmedPincode && (
+          <div className="mt-2.5 flex items-center gap-2 rounded-xl bg-green-50 px-3 py-2 text-sm text-green-700">
+            <CheckCircle2 size={15} className="shrink-0 text-green-500" />
+            <span>
+              Delivering to{" "}
+              <span className="font-bold">{confirmedPincode}</span> by{" "}
+              <span className="font-bold">{estimatedDeliveryLabel}</span>
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Delivery badges row */}
+      <div className="mt-3 grid grid-cols-3 divide-x divide-gray-200 border-t border-gray-100 bg-white px-2 py-3">
+        <div className="flex flex-col items-center gap-1.5 px-2 text-center">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand/10">
+            <Truck size={15} className="text-brand" />
+          </div>
+          <span className="text-[11px] font-semibold leading-tight text-gray-600">
+            {freeDelivery ? "Free Delivery" : "Paid Delivery"}
+          </span>
         </div>
-        <button
-          type="submit"
-          disabled={!isValid}
-          className="shrink-0 rounded-lg border-2 border-brand px-4 py-2 text-sm font-semibold text-brand transition hover:bg-brand-50 disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-400"
-        >
-          Check
-        </button>
-      </form>
 
-      {confirmedPincode && (
-        <p className="mt-2.5 flex items-center gap-1.5 text-sm text-gray-700">
-          <CheckCircle2 size={15} className="text-success" />
-          Delivering to <span className="font-medium">{confirmedPincode}</span> by{" "}
-          <span className="font-semibold">{estimatedDeliveryLabel}</span>
-        </p>
-      )}
+        <div className="flex flex-col items-center gap-1.5 px-2 text-center">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand/10">
+            <ShieldCheck size={15} className="text-brand" />
+          </div>
+          <span className="text-[11px] font-semibold leading-tight text-gray-600">
+            {codAllowed ? "Cash on Delivery" : "Prepaid Only"}
+          </span>
+        </div>
 
-      <div className="mt-3 grid grid-cols-1 gap-2 border-t border-gray-200 pt-3 text-xs text-gray-600 sm:grid-cols-3">
-        <span className="flex items-center gap-1.5">
-          <Truck size={14} className="text-brand" />
-          {freeDelivery ? "Free delivery" : "Delivery charge applies"}
-        </span>
-        <span className="flex items-center gap-1.5">
-          <CheckCircle2 size={14} className="text-brand" />
-          {codAllowed ? "Cash on Delivery available" : "Prepaid only"}
-        </span>
-        <span className="flex items-center gap-1.5">
-          <RotateCcw size={14} className="text-brand" />
-          7-day easy returns
-        </span>
+        <div className="flex flex-col items-center gap-1.5 px-2 text-center">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand/10">
+            <RotateCcw size={15} className="text-brand" />
+          </div>
+          <span className="text-[11px] font-semibold leading-tight text-gray-600">
+            7-Day Returns
+          </span>
+        </div>
       </div>
     </div>
   );

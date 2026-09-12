@@ -9,9 +9,9 @@ interface ProductPriceProps {
 }
 
 const sizeClasses = {
-  sm: { price: "text-sm", mrp: "text-xs", badge: "text-[10px]" },
-  md: { price: "text-lg", mrp: "text-sm", badge: "text-xs" },
-  lg: { price: "text-2xl", mrp: "text-base", badge: "text-sm" },
+  sm: { price: "text-base", mrp: "text-xs", badge: "text-[10px] px-1.5 py-0.5" },
+  md: { price: "text-xl",   mrp: "text-sm",  badge: "text-xs px-2 py-0.5" },
+  lg: { price: "text-3xl",  mrp: "text-base",badge: "text-sm px-2.5 py-1" },
 };
 
 export default function ProductPrice({
@@ -20,26 +20,28 @@ export default function ProductPrice({
   discountPercent,
   size = "md",
 }: ProductPriceProps) {
-  const classes = sizeClasses[size];
+  const c = sizeClasses[size];
   const showDiscount = hasDiscount(Number(mrp), Number(sellingPrice));
+  const pct = discountPercent !== undefined ? Math.round(Number(discountPercent)) : 0;
 
   return (
     <div className="flex flex-wrap items-baseline gap-2">
-      <span className={`font-bold text-gray-900 ${classes.price}`}>
+      {/* Main price */}
+      <span className={`font-extrabold tracking-tight text-gray-900 ${c.price}`}>
         {formatCurrency(sellingPrice)}
       </span>
 
       {showDiscount && (
-        <span className={`text-gray-400 line-through ${classes.mrp}`}>
+        <span className={`font-medium text-gray-400 line-through ${c.mrp}`}>
           {formatCurrency(mrp)}
         </span>
       )}
 
-      {showDiscount && discountPercent !== undefined && (
+      {showDiscount && pct > 0 && (
         <span
-          className={`font-semibold text-brand ${classes.badge}`}
+          className={`inline-flex items-center rounded-full bg-green-50 font-bold text-green-600 ${c.badge}`}
         >
-          {Math.round(Number(discountPercent))}% off
+          {pct}% off
         </span>
       )}
     </div>
