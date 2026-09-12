@@ -30,22 +30,28 @@ function QtyStepper({
   onRemove: () => void;
   disabled: boolean;
 }) {
+  // qty=1 pe minus → red trash (next tap removes), qty>1 pe normal minus
+  const handleMinus = () => {
+    if (value <= 1) onRemove();
+    else onDecrease();
+  };
+
   return (
-    <div className="flex items-center gap-1 rounded-2xl bg-gray-100 p-1">
+    <div className="flex items-center rounded-2xl border-2 border-brand/20 bg-brand/5 p-0.5 shadow-sm">
       <button
-        onClick={value <= 1 ? onRemove : onDecrease}
+        onClick={handleMinus}
         disabled={disabled}
         aria-label={value <= 1 ? "Remove item" : "Decrease quantity"}
-        className={`flex h-8 w-8 items-center justify-center rounded-xl transition active:scale-90 disabled:opacity-40 ${
+        className={`flex h-8 w-8 items-center justify-center rounded-xl font-bold transition-all duration-150 active:scale-75 disabled:opacity-40 ${
           value <= 1
-            ? "bg-red-100 text-red-500 hover:bg-red-200"
-            : "bg-white text-gray-700 shadow-sm hover:bg-brand hover:text-white"
+            ? "bg-red-500 text-white shadow-md shadow-red-200 hover:bg-red-600"
+            : "bg-white text-brand shadow-sm hover:bg-brand hover:text-white hover:shadow-md hover:shadow-brand/25"
         }`}
       >
         {value <= 1 ? <Trash2 size={14} /> : <Minus size={14} />}
       </button>
 
-      <span className="w-7 text-center text-sm font-bold text-gray-800">
+      <span className="w-9 text-center text-sm font-extrabold text-brand">
         {value}
       </span>
 
@@ -53,7 +59,7 @@ function QtyStepper({
         onClick={onIncrease}
         disabled={disabled}
         aria-label="Increase quantity"
-        className="flex h-8 w-8 items-center justify-center rounded-xl bg-white text-gray-700 shadow-sm transition hover:bg-brand hover:text-white active:scale-90 disabled:opacity-40"
+        className="flex h-8 w-8 items-center justify-center rounded-xl bg-white text-brand shadow-sm transition-all duration-150 hover:bg-brand hover:text-white hover:shadow-md hover:shadow-brand/25 active:scale-75 disabled:opacity-40"
       >
         <Plus size={14} />
       </button>
@@ -297,20 +303,28 @@ export default function CartPage() {
             </div>
 
             {/* Price details */}
-            <div className="rounded-2xl border bg-white p-5 shadow-sm">
-              <h2 className="mb-4 font-bold text-gray-800">Price Details</h2>
+            <div className="overflow-hidden rounded-2xl border bg-white shadow-sm">
+              {/* Header */}
+              <div className="border-b bg-gray-50 px-5 py-3.5">
+                <h2 className="font-extrabold text-gray-800">
+                  Price Details
+                  <span className="ml-1.5 text-sm font-normal text-gray-400">
+                    ({items.length} {items.length === 1 ? "item" : "items"})
+                  </span>
+                </h2>
+              </div>
 
-              <div className="space-y-2.5 text-sm">
+              <div className="space-y-2.5 p-5 text-sm">
                 <div className="flex justify-between text-gray-600">
-                  <span>Price ({items.length} items)</span>
+                  <span>Original Price</span>
                   <span>{formatCurrency(mrpTotal)}</span>
                 </div>
-                <div className="flex justify-between font-medium text-green-600">
+                <div className="flex justify-between font-semibold text-green-600">
                   <span>Discount</span>
                   <span>− {formatCurrency(mrpTotal - subtotal)}</span>
                 </div>
                 {coupon && couponDiscount > 0 && (
-                  <div className="flex justify-between font-medium text-green-600">
+                  <div className="flex justify-between font-semibold text-green-600">
                     <span>Coupon ({coupon.code})</span>
                     <span>− {formatCurrency(couponDiscount)}</span>
                   </div>
@@ -318,42 +332,88 @@ export default function CartPage() {
                 <div className="flex justify-between text-gray-600">
                   <span>Shipping</span>
                   {shipping === 0 ? (
-                    <span className="font-semibold text-green-600">FREE</span>
+                    <span className="font-bold text-green-600">FREE 🎁</span>
                   ) : (
                     <span>{formatCurrency(shipping)}</span>
                   )}
                 </div>
-                <div className="flex justify-between border-t pt-3 text-base font-bold text-gray-900">
-                  <span>Total</span>
+                <div className="flex justify-between border-t pt-3 text-base font-extrabold text-gray-900">
+                  <span>Order Total</span>
                   <span>{formatCurrency(total)}</span>
                 </div>
               </div>
 
+              {/* Savings pill */}
               {mrpTotal - subtotal > 0 && (
-                <div className="mt-4 flex items-center gap-2 rounded-xl bg-green-50 px-3 py-2.5 text-sm font-medium text-green-700">
+                <div className="mx-5 mb-4 flex items-center gap-2 rounded-xl bg-green-50 px-3 py-2.5 text-sm font-semibold text-green-700 ring-1 ring-green-100">
                   <span>🎉</span>
                   <span>
-                    You save{" "}
-                    <strong>
-                      {formatCurrency(mrpTotal - subtotal + couponDiscount)}
-                    </strong>{" "}
-                    on this order!
+                    You&apos;re saving{" "}
+                    <strong>{formatCurrency(mrpTotal - subtotal + couponDiscount)}</strong> on this order!
                   </span>
                 </div>
               )}
 
-              <Link
-                href={isAuthenticated ? "/checkout" : "/login?redirect=/checkout"}
-                className="mt-5 flex items-center justify-center gap-2 rounded-2xl bg-brand py-3.5 text-center font-bold text-white shadow-md shadow-brand/30 transition hover:bg-brand-dark active:scale-95"
-              >
-                Proceed to Checkout →
-              </Link>
+              {/* CTA */}
+              <div className="px-5 pb-5">
+                <Link
+                  href={isAuthenticated ? "/checkout" : "/login?redirect=/checkout"}
+                  className="group relative flex items-center justify-center gap-2 overflow-hidden rounded-2xl bg-brand py-4 text-center font-extrabold text-white shadow-lg shadow-brand/30 transition hover:bg-brand-dark active:scale-[0.98]"
+                >
+                  <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+                  <span className="relative">Proceed to Checkout</span>
+                  <span className="relative text-lg">→</span>
+                </Link>
 
-              {!isAuthenticated && (
-                <p className="mt-2 text-center text-xs text-gray-400">
-                  You&apos;ll be asked to login at checkout.
+                {!isAuthenticated && (
+                  <p className="mt-2 text-center text-xs text-gray-400">
+                    You&apos;ll be asked to login at checkout.
+                  </p>
+                )}
+              </div>
+
+              {/* ── Trust & Security section ── */}
+              <div className="border-t bg-gray-50 px-5 py-4">
+                <p className="mb-3 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-gray-400">
+                  <span>🔒</span> Safe & Secure Checkout
                 </p>
-              )}
+
+                {/* Razorpay badge */}
+                <div className="mb-3 flex items-center gap-2 rounded-xl border border-blue-100 bg-white px-3 py-2.5">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-600">
+                    <span className="text-[10px] font-black text-white">R∕</span>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-gray-800">Powered by Razorpay</p>
+                    <p className="text-[10px] text-gray-400">256-bit SSL encrypted payments</p>
+                  </div>
+                  <span className="ml-auto shrink-0 rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-bold text-green-600">
+                    Verified
+                  </span>
+                </div>
+
+                {/* Trust points */}
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { icon: "🛡️", label: "100% Secure", sub: "Your data is safe" },
+                    { icon: "💳", label: "UPI / Cards", sub: "All methods accepted" },
+                    { icon: "🔄", label: "Easy Returns", sub: "7-day hassle free" },
+                    { icon: "📦", label: "Fast Delivery", sub: "Pan India shipping" },
+                  ].map(({ icon, label, sub }) => (
+                    <div key={label} className="flex items-start gap-2 rounded-xl bg-white p-2.5 text-left">
+                      <span className="text-base leading-none">{icon}</span>
+                      <div>
+                        <p className="text-[11px] font-bold text-gray-700">{label}</p>
+                        <p className="text-[10px] text-gray-400">{sub}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <p className="mt-3 text-center text-[10px] text-gray-400">
+                  Trusted by 10,000+ happy customers across India 🇮🇳
+                </p>
+              </div>
             </div>
           </div>
         </div>
