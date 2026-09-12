@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Check, Minus, Pencil, Plus } from "lucide-react";
+import { Check, Minus, Pencil, Plus, Trash2 } from "lucide-react";
 import { useSession } from "@/providers/SessionProvider";
 import { useCart } from "@/hooks/useCart";
 import { AddressData } from "@/types/order";
@@ -64,11 +64,8 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<"COD" | "RAZORPAY">(
     "RAZORPAY"
   );
-  const [editingQtyItemId, setEditingQtyItemId] = useState<string | null>(
-    null
-  );
-  const [qtyDraft, setQtyDraft] = useState(1);
-  const [isUpdatingQty, setIsUpdatingQty] = useState(false);
+  const [updatingItemId, setUpdatingItemId] = useState<string | null>(null);
+  const [removingItemId, setRemovingItemId] = useState<string | null>(null);
 
   // Explicit WhatsApp opt-in. Never required to place an order; each toggle is
   // persisted against the profile so the consent record survives even if the
@@ -240,16 +237,23 @@ export default function CheckoutPage() {
     setShowForm(true);
   }
 
-  async function handleUpdateQty(itemId: string) {
-    setIsUpdatingQty(true);
+  async function handleChangeQty(itemId: string, newQty: number, currentStock: number) {
+    if (newQty < 1) return;
+    if (newQty > currentStock) return;
+    setUpdatingItemId(itemId);
     try {
-      const ok = await updateQuantity(itemId, qtyDraft);
-      if (ok) {
-        setEditingQtyItemId(null);
-        toast.success("Quantity updated");
-      }
+      await updateQuantity(itemId, newQty);
     } finally {
-      setIsUpdatingQty(false);
+      setUpdatingItemId(null);
+    }
+  }
+
+  async function handleRemoveItem(itemId: string) {
+    setRemovingItemId(itemId);
+    try {
+      await updateQuantity(itemId, 0);
+    } finally {
+      setRemovingItemId(null);
     }
   }
 
@@ -549,99 +553,84 @@ export default function CheckoutPage() {
                     item.product.images.find((img) => img.isThumbnail)?.url ??
                     item.product.images[0]?.url;
 
+                  const isUpdating = updatingItemId === item.id;
+                  const isRemoving = removingItemId === item.id;
+
                   return (
                     <div
                       key={item.id}
                       className="flex gap-3 border-b p-4 last:border-0"
                     >
                       {thumb && (
-                        <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-gray-50">
+                        <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-gray-50">
                           <Image
                             src={thumb}
                             alt={item.product.name}
                             fill
-                            sizes="56px"
+                            sizes="64px"
                             className="object-contain p-1"
                           />
                         </div>
                       )}
-                      <div className="flex-1">
+                      <div className="flex flex-1 flex-col gap-2 min-w-0">
                         <div className="flex items-start justify-between gap-2">
-                          <p className="text-sm font-medium text-gray-800">
+                          <p className="line-clamp-2 text-sm font-medium text-gray-800">
                             {item.product.name}
                           </p>
+                          {/* Delete button — always visible */}
                           <button
-                            onClick={() => {
-                              if (editingQtyItemId === item.id) {
-                                setEditingQtyItemId(null);
-                              } else {
-                                setQtyDraft(item.quantity);
-                                setEditingQtyItemId(item.id);
-                              }
-                            }}
-                            className="whitespace-nowrap text-xs font-semibold text-brand hover:underline"
+                            onClick={() => handleRemoveItem(item.id)}
+                            disabled={isUpdating || isRemoving}
+                            aria-label="Remove item"
+                            className="shrink-0 flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 transition hover:bg-red-50 hover:text-red-500 active:scale-90 disabled:opacity-40"
                           >
-                            EDIT
+                            <Trash2 size={14} />
                           </button>
                         </div>
-                        <p className="mt-1 text-sm">
-                          <span className="font-semibold text-gray-900">
+
+                        <p className="text-sm">
+                          <span className="font-bold text-gray-900">
                             {formatCurrency(price)}
                           </span>{" "}
                           {off > 0 && (
                             <>
-                              <span className="text-gray-400 line-through">
+                              <span className="text-xs text-gray-400 line-through">
                                 {formatCurrency(mrp)}
                               </span>{" "}
-                              <span className="font-medium text-green-600">
-                                {off}% Off
+                              <span className="rounded-full bg-green-50 px-1.5 py-0.5 text-[11px] font-bold text-green-600">
+                                {off}% off
                               </span>
                             </>
                           )}
                         </p>
 
-                        {editingQtyItemId === item.id ? (
-                          <div className="mt-2 flex items-center gap-3">
-                            <div className="flex items-center overflow-hidden rounded-lg border">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setQtyDraft((q) => Math.max(1, q - 1))
-                                }
-                                disabled={qtyDraft <= 1}
-                                className="tap-shrink flex h-8 w-8 items-center justify-center text-gray-600 hover:bg-gray-50 disabled:opacity-40"
-                              >
-                                <Minus size={14} />
-                              </button>
-                              <span className="w-8 text-center text-sm font-medium text-gray-800">
-                                {qtyDraft}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setQtyDraft((q) =>
-                                    Math.min(item.product.stock, q + 1)
-                                  )
-                                }
-                                disabled={qtyDraft >= item.product.stock}
-                                className="tap-shrink flex h-8 w-8 items-center justify-center text-gray-600 hover:bg-gray-50 disabled:opacity-40"
-                              >
-                                <Plus size={14} />
-                              </button>
-                            </div>
+                        {/* Qty stepper — always visible, no EDIT click needed */}
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-0.5 rounded-2xl bg-gray-100 p-1">
                             <button
-                              onClick={() => handleUpdateQty(item.id)}
-                              disabled={isUpdatingQty}
-                              className="tap-shrink rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-dark disabled:opacity-60"
+                              type="button"
+                              onClick={() => handleChangeQty(item.id, item.quantity - 1, item.product.stock)}
+                              disabled={isUpdating || isRemoving || item.quantity <= 1}
+                              className="flex h-7 w-7 items-center justify-center rounded-xl bg-white text-gray-700 shadow-sm transition hover:bg-brand hover:text-white active:scale-90 disabled:opacity-40"
                             >
-                              {isUpdatingQty ? "Updating..." : "Update"}
+                              <Minus size={13} />
+                            </button>
+                            <span className="w-7 text-center text-sm font-bold text-gray-800">
+                              {isUpdating ? "…" : item.quantity}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleChangeQty(item.id, item.quantity + 1, item.product.stock)}
+                              disabled={isUpdating || isRemoving || item.quantity >= item.product.stock}
+                              className="flex h-7 w-7 items-center justify-center rounded-xl bg-white text-gray-700 shadow-sm transition hover:bg-brand hover:text-white active:scale-90 disabled:opacity-40"
+                            >
+                              <Plus size={13} />
                             </button>
                           </div>
-                        ) : (
-                          <p className="text-xs text-gray-400">
-                            Qty: {item.quantity}
-                          </p>
-                        )}
+                          <span className="text-xs text-gray-400">
+                            = <span className="font-semibold text-gray-600">{formatCurrency(price * item.quantity)}</span>
+                          </span>
+                        </div>
                       </div>
                     </div>
                   );
