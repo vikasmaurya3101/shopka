@@ -48,7 +48,7 @@ function getEstimatedDelivery() {
 export default function CheckoutPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: isSessionLoading, user, setUser } = useSession();
-  const { cart, isLoading: isCartLoading, updateQuantity } = useCart();
+  const { cart, isLoading: isCartLoading, updateQuantity, removeItem } = useCart();
 
   const [addresses, setAddresses] = useState<AddressData[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -238,8 +238,11 @@ export default function CheckoutPage() {
   }
 
   async function handleChangeQty(itemId: string, newQty: number, currentStock: number) {
-    if (newQty < 1) return;
     if (newQty > currentStock) return;
+    if (newQty < 1) {
+      await handleRemoveItem(itemId);
+      return;
+    }
     setUpdatingItemId(itemId);
     try {
       await updateQuantity(itemId, newQty);
@@ -251,7 +254,7 @@ export default function CheckoutPage() {
   async function handleRemoveItem(itemId: string) {
     setRemovingItemId(itemId);
     try {
-      await updateQuantity(itemId, 0);
+      await removeItem(itemId);
     } finally {
       setRemovingItemId(null);
     }
