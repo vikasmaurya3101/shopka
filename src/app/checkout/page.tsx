@@ -328,7 +328,7 @@ export default function CheckoutPage() {
     }
 
     toast.success("Order placed successfully!");
-    router.push(`/orders/${json.data.id}`);
+    router.push(`/order-success/${json.data.id}`);
     return true;
   }
 
