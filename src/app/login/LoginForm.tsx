@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { Mail, MessageSquare, ShieldCheck, Lock } from "lucide-react";
+import { Mail, MessageSquare, ShieldCheck, Lock, RefreshCw } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import Logo from "@/components/shared/Logo";
 import OtpInput from "@/components/auth/OtpInput";
@@ -15,13 +15,18 @@ type Step = "phone" | "otp" | "profile";
 /** Cooldown between resend attempts (seconds) */
 const RESEND_COOLDOWN_SECONDS = 45;
 
-/** Max resends allowed before 1-hour hard lock */
+/** Max resends before hard lock */
 const RESEND_HARD_LIMIT = 3;
 
-/** Hard lock duration when resend limit is hit (1 hour) */
+/** Hard lock duration (1 hour) */
 const RESEND_HARD_LOCK_SECONDS = 60 * 60;
 
-/** Server-side lock duration (30 min) — shown on 429 */
+/** Show "X resends left" warning only after this many resends */
+const WARN_AFTER_RESENDS = 2;
+
+/** Show server lock warning only after this many failed OTP verifications */
+const SHOW_LOCK_WARNING_AFTER_FAILS = 5;
+
 const SERVER_LOCK_DURATION_SECONDS = 30 * 60;
 
 export default function LoginForm({ logoUrl }: { logoUrl: string }) {
@@ -40,23 +45,18 @@ export default function LoginForm({ logoUrl }: { logoUrl: string }) {
   const [email, setEmail] = useState("");
   const [whatsappConsent, setWhatsappConsent] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [sendFailed, setSendFailed] = useState(false); // show retry button
 
-  // Resend cooldown (45s between each resend)
+  // Resend state
   const [resendCooldown, setResendCooldown] = useState(0);
-
-  // Track how many times user has hit "Resend" (resets when phone changes)
   const [resendCount, setResendCount] = useState(0);
-
-  // Hard lock — when resendCount hits RESEND_HARD_LIMIT
   const [hardLockedFor, setHardLockedFor] = useState(0);
-
-  // Server lock — when server returns 429
   const [serverLockedFor, setServerLockedFor] = useState(0);
 
-  // How many OTP attempts are left (max 3 per 30 min)
-  const [attemptsLeft, setAttemptsLeft] = useState<number | null>(null);
+  // OTP verify fail count — only show warnings after SHOW_LOCK_WARNING_AFTER_FAILS
+  const [verifyFailCount, setVerifyFailCount] = useState(0);
 
-  // ── Tick timers ─────────────────────────────────────────────────────────
+  // ── Timers ──────────────────────────────────────────────────────────────
   useEffect(() => {
     if (resendCooldown <= 0) return;
     const t = setTimeout(() => setResendCooldown((s) => s - 1), 1000);
@@ -86,31 +86,51 @@ export default function LoginForm({ logoUrl }: { logoUrl: string }) {
     return `${m}:${s.toString().padStart(2, "0")}`;
   }
 
+  // ── Send OTP (first time) ───────────────────────────────────────────────
   async function handleSendOtp(e: React.FormEvent) {
     e.preventDefault();
-
     const digitsOnly = phone.replace(/\D/g, "");
     if (digitsOnly.length < 10) return;
 
     setLocalError(null);
+    setSendFailed(false);
     const result = await sendOtp(digitsOnly, "whatsapp");
 
     if (result.success) {
-      setAttemptsLeft(result.attemptsLeft ?? null);
       setResendCooldown(RESEND_COOLDOWN_SECONDS);
       setResendCount(0);
       resetOtpBoxes();
       setStep("otp");
     } else if (result.locked) {
       setServerLockedFor(result.retryAfterSeconds ?? SERVER_LOCK_DURATION_SECONDS);
-      setLocalError(null);
+    } else {
+      setSendFailed(true); // show retry button on phone screen
     }
   }
 
+  // ── Retry after failed send ─────────────────────────────────────────────
+  async function handleRetrySend() {
+    setSendFailed(false);
+    setLocalError(null);
+    const digitsOnly = phone.replace(/\D/g, "");
+    const result = await sendOtp(digitsOnly, "whatsapp");
+
+    if (result.success) {
+      setResendCooldown(RESEND_COOLDOWN_SECONDS);
+      setResendCount(0);
+      resetOtpBoxes();
+      setStep("otp");
+    } else if (result.locked) {
+      setServerLockedFor(result.retryAfterSeconds ?? SERVER_LOCK_DURATION_SECONDS);
+    } else {
+      setSendFailed(true);
+    }
+  }
+
+  // ── Resend OTP (from OTP screen) ────────────────────────────────────────
   async function handleResend() {
     if (resendCooldown > 0 || isSubmitting) return;
 
-    // If already at hard limit, activate hard lock
     if (resendCount >= RESEND_HARD_LIMIT) {
       setHardLockedFor(RESEND_HARD_LOCK_SECONDS);
       return;
@@ -123,11 +143,8 @@ export default function LoginForm({ logoUrl }: { logoUrl: string }) {
     if (result.success) {
       const newCount = resendCount + 1;
       setResendCount(newCount);
-      setAttemptsLeft(result.attemptsLeft ?? null);
       resetOtpBoxes();
       setResendCooldown(RESEND_COOLDOWN_SECONDS);
-
-      // Immediately lock if we've now hit the limit
       if (newCount >= RESEND_HARD_LIMIT) {
         setHardLockedFor(RESEND_HARD_LOCK_SECONDS);
       }
@@ -136,11 +153,13 @@ export default function LoginForm({ logoUrl }: { logoUrl: string }) {
     }
   }
 
+  // ── Verify OTP ──────────────────────────────────────────────────────────
   async function handleVerifyOtp(code: string) {
     const digitsOnly = phone.replace(/\D/g, "");
     const result = await verifyOtp(digitsOnly, code);
 
     if (!result.success) {
+      setVerifyFailCount((c) => c + 1);
       resetOtpBoxes();
       return;
     }
@@ -152,6 +171,7 @@ export default function LoginForm({ logoUrl }: { logoUrl: string }) {
     }
   }
 
+  // ── Complete profile ────────────────────────────────────────────────────
   async function handleCompleteProfile(e: React.FormEvent) {
     e.preventDefault();
     if (!firstName.trim()) return;
@@ -165,9 +185,7 @@ export default function LoginForm({ logoUrl }: { logoUrl: string }) {
       whatsappConsent,
     });
 
-    if (result.success) {
-      router.push(redirectTo);
-    }
+    if (result.success) router.push(redirectTo);
   }
 
   function handleChangeNumber() {
@@ -176,14 +194,15 @@ export default function LoginForm({ logoUrl }: { logoUrl: string }) {
     setHardLockedFor(0);
     setResendCooldown(0);
     setResendCount(0);
-    setAttemptsLeft(null);
+    setVerifyFailCount(0);
+    setSendFailed(false);
     resetOtpBoxes();
     setLocalError(null);
   }
 
   const displayError = error || localError;
 
-  // ── Hard lock screen (client-side resend limit) ──────────────────────────
+  // ── Hard lock screen ─────────────────────────────────────────────────────
   if (hardLockedFor > 0) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-50 via-white to-accent-50 px-4 py-10">
@@ -198,14 +217,13 @@ export default function LoginForm({ logoUrl }: { logoUrl: string }) {
               <Lock size={28} className="text-red-500" />
             </span>
           </div>
-          <h2 className="text-xl font-extrabold text-gray-800">Resend limit reached</h2>
+          <h2 className="text-xl font-extrabold text-gray-800">Too many resends</h2>
           <p className="mt-2 text-sm text-gray-500">
-            You&apos;ve requested OTP too many times. Please try again in:
+            Please wait before requesting another OTP.
           </p>
           <p className="mt-4 text-4xl font-bold text-brand tabular-nums">
             {formatTime(hardLockedFor)}
           </p>
-          <p className="mt-2 text-xs text-gray-400">hours : minutes</p>
           <button
             type="button"
             onClick={handleChangeNumber}
@@ -218,7 +236,7 @@ export default function LoginForm({ logoUrl }: { logoUrl: string }) {
     );
   }
 
-  // ── Server lock screen (429 from rate limiter) ──────────────────────────
+  // ── Server lock screen ───────────────────────────────────────────────────
   if (serverLockedFor > 0) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-50 via-white to-accent-50 px-4 py-10">
@@ -235,12 +253,11 @@ export default function LoginForm({ logoUrl }: { logoUrl: string }) {
           </div>
           <h2 className="text-xl font-extrabold text-gray-800">Too many attempts</h2>
           <p className="mt-2 text-sm text-gray-500">
-            OTP requests are blocked for this number. Please try again in:
+            OTP requests are blocked. Try again in:
           </p>
           <p className="mt-4 text-4xl font-bold text-brand tabular-nums">
             {formatTime(serverLockedFor)}
           </p>
-          <p className="mt-2 text-xs text-gray-400">minutes : seconds</p>
           <button
             type="button"
             onClick={handleChangeNumber}
@@ -253,7 +270,7 @@ export default function LoginForm({ logoUrl }: { logoUrl: string }) {
     );
   }
 
-  // ── Main login form ────────────────────────────────────────────────────
+  // ── Main form ────────────────────────────────────────────────────────────
   return (
     <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-50 via-white to-accent-50 px-4 py-10">
       <motion.div
@@ -283,7 +300,7 @@ export default function LoginForm({ logoUrl }: { logoUrl: string }) {
         </p>
 
         <AnimatePresence>
-          {displayError && (
+          {displayError && !sendFailed && (
             <motion.p
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
@@ -296,6 +313,8 @@ export default function LoginForm({ logoUrl }: { logoUrl: string }) {
         </AnimatePresence>
 
         <AnimatePresence mode="wait">
+
+          {/* ── Phone step ── */}
           {step === "phone" && (
             <motion.div
               key="phone"
@@ -312,13 +331,32 @@ export default function LoginForm({ logoUrl }: { logoUrl: string }) {
                     inputMode="numeric"
                     placeholder="10-digit mobile number"
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
+                    onChange={(e) => {
+                      setPhone(e.target.value.replace(/\D/g, ""));
+                      setSendFailed(false);
+                    }}
                     maxLength={10}
                     className="w-full outline-none"
                     required
                     autoFocus
                   />
                 </div>
+
+                {/* Failed send — show error + retry */}
+                {sendFailed && (
+                  <div className="rounded-lg bg-red-50 px-4 py-3 text-center space-y-2">
+                    <p className="text-sm text-red-600">Unable to send OTP. Please try again.</p>
+                    <button
+                      type="button"
+                      onClick={handleRetrySend}
+                      disabled={isSubmitting}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 px-4 py-1.5 text-sm font-semibold text-red-600 hover:bg-red-100 transition disabled:opacity-50"
+                    >
+                      <RefreshCw size={14} />
+                      {isSubmitting ? "Retrying..." : "Retry"}
+                    </button>
+                  </div>
+                )}
 
                 <button
                   type="submit"
@@ -348,6 +386,7 @@ export default function LoginForm({ logoUrl }: { logoUrl: string }) {
             </motion.div>
           )}
 
+          {/* ── OTP step ── */}
           {step === "otp" && (
             <motion.div
               key="otp"
@@ -375,7 +414,7 @@ export default function LoginForm({ logoUrl }: { logoUrl: string }) {
                 {isSubmitting ? "Verifying..." : "Verify OTP"}
               </button>
 
-              {/* ── Not received / Resend section ── */}
+              {/* ── Didn't receive OTP section ── */}
               <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 space-y-2">
                 <p className="text-center text-xs font-medium text-gray-500">
                   Didn&apos;t receive the OTP?
@@ -399,20 +438,18 @@ export default function LoginForm({ logoUrl }: { logoUrl: string }) {
                   </button>
                 )}
 
-                {/* Resend counter warning */}
-                {resendCount > 0 && resendCount < RESEND_HARD_LIMIT && (
+                {/* Warning: only show after enough resends OR verify fails */}
+                {resendCount >= WARN_AFTER_RESENDS && resendCount < RESEND_HARD_LIMIT && (
                   <p className="text-center text-xs text-amber-600">
                     {RESEND_HARD_LIMIT - resendCount} resend
-                    {RESEND_HARD_LIMIT - resendCount === 1 ? "" : "s"} remaining
-                    before 1-hour lock
+                    {RESEND_HARD_LIMIT - resendCount === 1 ? "" : "s"} left before 1-hr lock
                   </p>
                 )}
 
-                {attemptsLeft !== null && attemptsLeft <= 1 && (
-                  <p className="text-center text-xs text-amber-600">
-                    {attemptsLeft === 0
-                      ? "No resends left. Please wait 30 minutes."
-                      : "1 resend left before 30-min lock"}
+                {/* Show 30-min lock warning only after 5+ failed verifications */}
+                {verifyFailCount >= SHOW_LOCK_WARNING_AFTER_FAILS && (
+                  <p className="text-center text-xs text-red-500">
+                    Too many wrong attempts — you may be locked out for 30 minutes.
                   </p>
                 )}
               </div>
@@ -427,6 +464,7 @@ export default function LoginForm({ logoUrl }: { logoUrl: string }) {
             </motion.div>
           )}
 
+          {/* ── Profile step ── */}
           {step === "profile" && (
             <motion.form
               key="profile"
