@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { Mail, MessageCircle, ShieldCheck, Lock } from "lucide-react";
+import { Mail, MessageSquare, ShieldCheck, Lock } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import Logo from "@/components/shared/Logo";
 import OtpInput from "@/components/auth/OtpInput";
@@ -12,11 +12,17 @@ import WhatsappConsentCheckbox from "@/components/shared/WhatsappConsentCheckbox
 
 type Step = "phone" | "otp" | "profile";
 
-/** How long the user waits before they can resend. */
-const RESEND_COOLDOWN_SECONDS = 60;
+/** Cooldown between resend attempts (seconds) */
+const RESEND_COOLDOWN_SECONDS = 45;
 
-/** After this many seconds the lock message auto-resets to phone step. */
-const LOCK_DURATION_SECONDS = 30 * 60; // 30 minutes — matches server
+/** Max resends allowed before 1-hour hard lock */
+const RESEND_HARD_LIMIT = 3;
+
+/** Hard lock duration when resend limit is hit (1 hour) */
+const RESEND_HARD_LOCK_SECONDS = 60 * 60;
+
+/** Server-side lock duration (30 min) — shown on 429 */
+const SERVER_LOCK_DURATION_SECONDS = 30 * 60;
 
 export default function LoginForm({ logoUrl }: { logoUrl: string }) {
   const router = useRouter();
@@ -35,35 +41,46 @@ export default function LoginForm({ logoUrl }: { logoUrl: string }) {
   const [whatsappConsent, setWhatsappConsent] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
-  // Resend cooldown (60s between each resend)
+  // Resend cooldown (45s between each resend)
   const [resendCooldown, setResendCooldown] = useState(0);
+
+  // Track how many times user has hit "Resend" (resets when phone changes)
+  const [resendCount, setResendCount] = useState(0);
+
+  // Hard lock — when resendCount hits RESEND_HARD_LIMIT
+  const [hardLockedFor, setHardLockedFor] = useState(0);
+
+  // Server lock — when server returns 429
+  const [serverLockedFor, setServerLockedFor] = useState(0);
 
   // How many OTP attempts are left (max 3 per 30 min)
   const [attemptsLeft, setAttemptsLeft] = useState<number | null>(null);
 
-  // Locked state — when server says 429, show a locked screen
-  const [lockedFor, setLockedFor] = useState(0); // seconds remaining in lock
-
-  // Tick resend cooldown
+  // ── Tick timers ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (resendCooldown <= 0) return;
     const t = setTimeout(() => setResendCooldown((s) => s - 1), 1000);
     return () => clearTimeout(t);
   }, [resendCooldown]);
 
-  // Tick lock countdown
   useEffect(() => {
-    if (lockedFor <= 0) return;
-    const t = setTimeout(() => setLockedFor((s) => s - 1), 1000);
+    if (hardLockedFor <= 0) return;
+    const t = setTimeout(() => setHardLockedFor((s) => s - 1), 1000);
     return () => clearTimeout(t);
-  }, [lockedFor]);
+  }, [hardLockedFor]);
+
+  useEffect(() => {
+    if (serverLockedFor <= 0) return;
+    const t = setTimeout(() => setServerLockedFor((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [serverLockedFor]);
 
   function resetOtpBoxes() {
     setOtp("");
     setOtpInputKey((k) => k + 1);
   }
 
-  function formatLockTime(secs: number) {
+  function formatTime(secs: number) {
     const m = Math.floor(secs / 60);
     const s = secs % 60;
     return `${m}:${s.toString().padStart(2, "0")}`;
@@ -81,10 +98,11 @@ export default function LoginForm({ logoUrl }: { logoUrl: string }) {
     if (result.success) {
       setAttemptsLeft(result.attemptsLeft ?? null);
       setResendCooldown(RESEND_COOLDOWN_SECONDS);
+      setResendCount(0);
       resetOtpBoxes();
       setStep("otp");
     } else if (result.locked) {
-      setLockedFor(result.retryAfterSeconds ?? LOCK_DURATION_SECONDS);
+      setServerLockedFor(result.retryAfterSeconds ?? SERVER_LOCK_DURATION_SECONDS);
       setLocalError(null);
     }
   }
@@ -92,16 +110,29 @@ export default function LoginForm({ logoUrl }: { logoUrl: string }) {
   async function handleResend() {
     if (resendCooldown > 0 || isSubmitting) return;
 
+    // If already at hard limit, activate hard lock
+    if (resendCount >= RESEND_HARD_LIMIT) {
+      setHardLockedFor(RESEND_HARD_LOCK_SECONDS);
+      return;
+    }
+
     setLocalError(null);
     const digitsOnly = phone.replace(/\D/g, "");
     const result = await sendOtp(digitsOnly, "whatsapp");
 
     if (result.success) {
+      const newCount = resendCount + 1;
+      setResendCount(newCount);
       setAttemptsLeft(result.attemptsLeft ?? null);
       resetOtpBoxes();
       setResendCooldown(RESEND_COOLDOWN_SECONDS);
+
+      // Immediately lock if we've now hit the limit
+      if (newCount >= RESEND_HARD_LIMIT) {
+        setHardLockedFor(RESEND_HARD_LOCK_SECONDS);
+      }
     } else if (result.locked) {
-      setLockedFor(result.retryAfterSeconds ?? LOCK_DURATION_SECONDS);
+      setServerLockedFor(result.retryAfterSeconds ?? SERVER_LOCK_DURATION_SECONDS);
     }
   }
 
@@ -141,8 +172,10 @@ export default function LoginForm({ logoUrl }: { logoUrl: string }) {
 
   function handleChangeNumber() {
     setStep("phone");
-    setLockedFor(0);
+    setServerLockedFor(0);
+    setHardLockedFor(0);
     setResendCooldown(0);
+    setResendCount(0);
     setAttemptsLeft(null);
     resetOtpBoxes();
     setLocalError(null);
@@ -150,8 +183,43 @@ export default function LoginForm({ logoUrl }: { logoUrl: string }) {
 
   const displayError = error || localError;
 
-  // ── Locked screen ──────────────────────────────────────────────────────
-  if (lockedFor > 0) {
+  // ── Hard lock screen (client-side resend limit) ──────────────────────────
+  if (hardLockedFor > 0) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-50 via-white to-accent-50 px-4 py-10">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, ease: "easeOut" }}
+          className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-[0_20px_50px_-15px_rgba(214,38,111,0.25)] text-center"
+        >
+          <div className="flex justify-center mb-4">
+            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-red-50">
+              <Lock size={28} className="text-red-500" />
+            </span>
+          </div>
+          <h2 className="text-xl font-extrabold text-gray-800">Resend limit reached</h2>
+          <p className="mt-2 text-sm text-gray-500">
+            You&apos;ve requested OTP too many times. Please try again in:
+          </p>
+          <p className="mt-4 text-4xl font-bold text-brand tabular-nums">
+            {formatTime(hardLockedFor)}
+          </p>
+          <p className="mt-2 text-xs text-gray-400">hours : minutes</p>
+          <button
+            type="button"
+            onClick={handleChangeNumber}
+            className="mt-6 text-sm text-gray-500 hover:text-brand"
+          >
+            Use a different number
+          </button>
+        </motion.div>
+      </main>
+    );
+  }
+
+  // ── Server lock screen (429 from rate limiter) ──────────────────────────
+  if (serverLockedFor > 0) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-50 via-white to-accent-50 px-4 py-10">
         <motion.div
@@ -170,7 +238,7 @@ export default function LoginForm({ logoUrl }: { logoUrl: string }) {
             OTP requests are blocked for this number. Please try again in:
           </p>
           <p className="mt-4 text-4xl font-bold text-brand tabular-nums">
-            {formatLockTime(lockedFor)}
+            {formatTime(serverLockedFor)}
           </p>
           <p className="mt-2 text-xs text-gray-400">minutes : seconds</p>
           <button
@@ -206,8 +274,8 @@ export default function LoginForm({ logoUrl }: { logoUrl: string }) {
           {step === "phone" && "Login or sign up to continue"}
           {step === "otp" && (
             <>
-              Code sent on{" "}
-              <span className="font-semibold text-gray-700">WhatsApp</span> to +91{" "}
+              OTP sent via{" "}
+              <span className="font-semibold text-gray-700">SMS</span> to +91{" "}
               {phone}
             </>
           )}
@@ -261,8 +329,8 @@ export default function LoginForm({ logoUrl }: { logoUrl: string }) {
                 </button>
 
                 <p className="flex items-center justify-center gap-1.5 text-center text-xs text-gray-400">
-                  <MessageCircle size={13} className="text-green-600" />
-                  We&apos;ll send you a verification code on WhatsApp
+                  <MessageSquare size={13} className="text-brand" />
+                  We&apos;ll send a verification code via SMS
                 </p>
               </form>
 
@@ -307,24 +375,44 @@ export default function LoginForm({ logoUrl }: { logoUrl: string }) {
                 {isSubmitting ? "Verifying..." : "Verify OTP"}
               </button>
 
-              {/* Resend + attempts left */}
-              <div className="space-y-1.5 text-center">
-                <button
-                  type="button"
-                  onClick={handleResend}
-                  disabled={resendCooldown > 0 || isSubmitting}
-                  className="text-sm font-semibold text-brand hover:underline disabled:text-gray-400 disabled:no-underline"
-                >
-                  {resendCooldown > 0
-                    ? `Resend OTP in 0:${resendCooldown.toString().padStart(2, "0")}`
-                    : "Resend OTP on WhatsApp"}
-                </button>
+              {/* ── Not received / Resend section ── */}
+              <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 space-y-2">
+                <p className="text-center text-xs font-medium text-gray-500">
+                  Didn&apos;t receive the OTP?
+                </p>
 
-                {attemptsLeft !== null && attemptsLeft <= 2 && (
-                  <p className="text-xs text-amber-600">
+                {resendCooldown > 0 ? (
+                  <p className="text-center text-sm text-gray-400">
+                    Resend in{" "}
+                    <span className="tabular-nums font-semibold text-brand">
+                      0:{resendCooldown.toString().padStart(2, "0")}
+                    </span>
+                  </p>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleResend}
+                    disabled={isSubmitting}
+                    className="w-full rounded-lg border border-brand/40 py-2 text-sm font-semibold text-brand hover:bg-brand/5 transition disabled:opacity-50"
+                  >
+                    {isSubmitting ? "Sending..." : "Resend OTP"}
+                  </button>
+                )}
+
+                {/* Resend counter warning */}
+                {resendCount > 0 && resendCount < RESEND_HARD_LIMIT && (
+                  <p className="text-center text-xs text-amber-600">
+                    {RESEND_HARD_LIMIT - resendCount} resend
+                    {RESEND_HARD_LIMIT - resendCount === 1 ? "" : "s"} remaining
+                    before 1-hour lock
+                  </p>
+                )}
+
+                {attemptsLeft !== null && attemptsLeft <= 1 && (
+                  <p className="text-center text-xs text-amber-600">
                     {attemptsLeft === 0
                       ? "No resends left. Please wait 30 minutes."
-                      : `${attemptsLeft} resend${attemptsLeft === 1 ? "" : "s"} left before 30-min lock`}
+                      : "1 resend left before 30-min lock"}
                   </p>
                 )}
               </div>

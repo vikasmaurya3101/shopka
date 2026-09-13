@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
 
     await otpRateLimiter.record(data.phone, ip);
 
-    await otpService.sendOtp(data.phone, "LOGIN", "whatsapp");
+    await otpService.sendOtp(data.phone, "LOGIN", "sms");
 
     // Tell the UI how many attempts are left in this window
     const usedCount = await authRepository.countOtpRequestsByPhone(
@@ -42,8 +42,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: "OTP sent on WhatsApp.",
-      channelUsed: "whatsapp",
+      message: "OTP sent via SMS.",
+      channelUsed: "sms",
       attemptsLeft,
     });
   } catch (error) {

@@ -10,19 +10,19 @@ import {
 } from "../utils/otp";
 
 import { mockProvider } from "../providers/mock.provider";
-import { whatsappProvider } from "../providers/whatsapp.provider";
+import { smsProvider } from "../providers/sms.provider";
 
-export type OtpChannelRequest = "whatsapp";
+export type OtpChannelRequest = "sms";
 
 export interface SendOtpResult {
   success: true;
   channelUsed: OtpChannelRequest;
 }
 
-/** True when WhatsApp is not configured — logs OTPs to console instead. */
+/** True when StartMessaging is not configured — logs OTPs to console instead. */
 function isMockMode(): boolean {
   return (
-    !whatsappProvider.isConfigured() ||
+    !smsProvider.isConfigured() ||
     (process.env.OTP_PROVIDER ?? "").toLowerCase() === "mock"
   );
 }
@@ -39,13 +39,13 @@ const PRUNE_PROBABILITY = 0.05;
 
 export class OtpService {
   /**
-   * Sends a login/signup OTP via WhatsApp (Fast2SMS).
-   * Falls back to mock mode (console log) if FAST2SMS_API_KEY is not set.
+   * Sends a login/signup OTP via SMS (StartMessaging).
+   * Falls back to mock mode (console log) if STARTMESSAGING_API_KEY is not set.
    */
   async sendOtp(
     phone: string,
     purpose: OtpPurpose,
-    channel: OtpChannelRequest = "whatsapp"
+    channel: OtpChannelRequest = "sms"
   ): Promise<SendOtpResult> {
     await authRepository.clearPendingOtp(phone, purpose);
 
@@ -66,28 +66,28 @@ export class OtpService {
         phone,
         otpHash,
         purpose,
-        channel: "WHATSAPP",
+        channel: "SMS",
         provider: "mock",
         expiresAt: getExpiryDate(),
       });
 
       await mockProvider.send(phone, otp);
-      return { success: true, channelUsed: "whatsapp" };
+      return { success: true, channelUsed: "sms" };
     }
 
-    // Send via WhatsApp (Fast2SMS)
-    await whatsappProvider.send(phone, otp);
+    // Send via SMS (StartMessaging)
+    await smsProvider.send(phone, otp);
 
     await authRepository.createOtp({
       phone,
       otpHash,
       purpose,
-      channel: "WHATSAPP",
-      provider: "fast2sms",
+      channel: "SMS",
+      provider: "startmessaging",
       expiresAt: getExpiryDate(),
     });
 
-    return { success: true, channelUsed: "whatsapp" };
+    return { success: true, channelUsed: "sms" };
   }
 
   async verifyOtp(phone: string, otp: string, purpose: OtpPurpose) {
