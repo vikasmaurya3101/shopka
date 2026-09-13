@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import LoginRequiredNotice from "@/components/shared/LoginRequiredNotice";
 import Hero from "@/components/home/Hero";
 import CategoryIconRow from "@/components/home/CategoryIconRow";
-import ChampionCategories from "@/components/home/ChampionCategories";
+// import ChampionCategories from "@/components/home/ChampionCategories"; // Top Picks — temporarily disabled
 import FlashSale from "@/components/home/FlashSale";
 import FeaturedProducts from "@/components/home/FeaturedProducts";
 import TrendingProducts from "@/components/home/TrendingProducts";
@@ -121,10 +121,8 @@ export default async function HomePage() {
         card3Value={s["hero_card3_value"]}
       />
       <CategoryIconRow categories={categories} />
-      <ChampionCategories
-        products={featuredProducts}
-        sectionTitle={s["champion_section_title"]}
-      />
+      {/* Top Picks section — temporarily removed per request. To restore,
+          uncomment ChampionCategories import above and this block. */}
       <FlashSale products={flashSaleProducts} endsAt={flashSaleEndsAt} />
       <FeaturedProducts products={featuredProducts} />
       <TrendingProducts products={trendingProducts} />

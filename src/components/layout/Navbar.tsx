@@ -170,17 +170,17 @@ export default function Navbar({ logoUrl = "/brand/logo-128.png" }: { logoUrl?: 
           {/* Desktop nav icons */}
           <div className="hidden items-center gap-1 lg:flex">
             {isAuthenticated ? (
-              <button onClick={logout} className="tap-shrink flex flex-col items-center gap-0.5 rounded-xl px-3 py-1.5 text-center transition hover:bg-brand-50 hover:text-brand">
+              <Link href="/profile" className="tap-shrink flex flex-col items-center gap-0.5 rounded-xl px-3 py-1.5 text-center transition hover:bg-brand-50 hover:text-brand">
                 <User size={20} />
                 <span className="max-w-[84px] truncate text-[11px] font-semibold leading-none">{user?.firstName ?? "Account"}</span>
-              </button>
+              </Link>
             ) : (
               <Link href="/login" className="tap-shrink flex flex-col items-center gap-0.5 rounded-xl px-3 py-1.5 text-center transition hover:bg-brand-50 hover:text-brand">
                 <User size={20} />
                 <span className="text-[11px] font-semibold leading-none">Login</span>
               </Link>
             )}
-            <Link href="/profile" className="tap-shrink flex flex-col items-center gap-0.5 rounded-xl px-3 py-1.5 text-center transition hover:bg-brand-50 hover:text-brand">
+            <Link href="/wishlist" className="tap-shrink flex flex-col items-center gap-0.5 rounded-xl px-3 py-1.5 text-center transition hover:bg-brand-50 hover:text-brand">
               <Heart size={20} />
               <span className="text-[11px] font-semibold leading-none">Wishlist</span>
             </Link>
@@ -215,6 +215,20 @@ export default function Navbar({ logoUrl = "/brand/logo-128.png" }: { logoUrl?: 
                           <Icon size={16} />{label}
                         </Link>
                       ))}
+                      {isAuthenticated && (
+                        <>
+                          <div className="my-1 border-t" />
+                          <button
+                            onClick={() => {
+                              setQuickMenuOpen(false);
+                              logout();
+                            }}
+                            className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-medium text-red-600 transition hover:bg-red-50"
+                          >
+                            <LogOut size={16} />Logout
+                          </button>
+                        </>
+                      )}
                     </motion.div>
                   </>
                 )}

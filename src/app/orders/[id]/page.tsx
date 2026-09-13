@@ -220,18 +220,18 @@ export default function OrderDetailPage() {
         {/* Product-first header */}
         <div className="mb-6 flex items-center gap-4">
           {order.items[0]?.productImage && (
-            <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border bg-gray-50">
+            <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm ring-1 ring-black/5">
               <Image
                 src={order.items[0].productImage}
                 alt={order.items[0].productName}
                 fill
-                sizes="64px"
-                className="object-contain p-1"
+                sizes="80px"
+                className="object-contain p-2"
               />
             </div>
           )}
-          <div className="min-w-0">
-            <h1 className="text-lg font-bold leading-snug text-gray-900">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-lg font-bold leading-snug text-gray-900 sm:text-xl">
               {order.items[0]?.productName ?? "Your Order"}
               {order.items.length > 1 && (
                 <span className="ml-1.5 text-sm font-normal text-gray-500">
@@ -239,20 +239,22 @@ export default function OrderDetailPage() {
                 </span>
               )}
             </h1>
-            <p className="mt-0.5 text-xs text-gray-400">
-              #{order.invoiceNumber} · Placed on{" "}
-              {new Date(order.placedAt).toLocaleDateString("en-IN", {
-                day: "numeric",
-                month: "short",
-                year: "numeric",
-              })}
-            </p>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <span className="text-xs text-gray-400">
+                #{order.invoiceNumber} · Placed on{" "}
+                {new Date(order.placedAt).toLocaleDateString("en-IN", {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                })}
+              </span>
+            </div>
           </div>
         </div>
 
         {/* ── Order Status card ── */}
-        <div className="mb-4 rounded-xl border bg-white p-5">
-          <h2 className="mb-4 text-xs font-semibold uppercase tracking-wide text-gray-400">Order Status</h2>
+        <div className="mb-4 overflow-hidden rounded-2xl border border-gray-100 bg-white p-5 shadow-sm sm:p-6">
+          <h2 className="mb-5 text-xs font-semibold uppercase tracking-wider text-gray-400">Order Status</h2>
 
           {/* Cancelled / Returned banner */}
           {(order.orderStatus === "CANCELLED" || order.orderStatus === "RETURNED" || order.orderStatus === "REFUNDED") && (
@@ -296,17 +298,17 @@ export default function OrderDetailPage() {
 
             return (
               <>
-                <div className="mb-6">
-                  <div className="mb-2 flex justify-between text-[11px] font-semibold uppercase tracking-wide">
+                <div className="mb-7">
+                  <div className="mb-2.5 flex justify-between text-[11px] font-semibold uppercase tracking-wide">
                     {HEADER_STAGES.map((label, idx) => (
                       <span key={label} className={idx <= headerActiveIdx ? "text-brand" : "text-gray-400"}>
                         {label}
                       </span>
                     ))}
                   </div>
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
                     <div
-                      className="h-full rounded-full bg-brand transition-all duration-500"
+                      className="h-full rounded-full bg-gradient-to-r from-brand to-brand-dark shadow-[0_0_8px_rgba(214,38,111,0.5)] transition-all duration-700 ease-out"
                       style={{ width: `${headerFillPct}%` }}
                     />
                   </div>
@@ -322,23 +324,28 @@ export default function OrderDetailPage() {
                   return (
                     <div key={step.status} className="flex gap-4">
                       <div className="flex flex-col items-center">
-                        <div
-                          className={`relative z-10 mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 ${
-                            isCompleted
-                              ? "border-brand bg-brand"
-                              : isCurrent
-                                ? "border-brand bg-white"
-                                : "border-gray-300 bg-white"
-                          }`}
-                        >
-                          <StepIcon
-                            className={`h-3.5 w-3.5 ${
-                              isCompleted ? "text-white" : isCurrent ? "text-brand" : "text-gray-300"
+                        <div className="relative">
+                          {isCurrent && (
+                            <span className="absolute inset-0 -m-1 animate-ping rounded-full bg-brand/30" />
+                          )}
+                          <div
+                            className={`relative z-10 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
+                              isCompleted
+                                ? "border-brand bg-brand shadow-[0_2px_8px_rgba(214,38,111,0.4)]"
+                                : isCurrent
+                                  ? "border-brand bg-white"
+                                  : "border-gray-200 bg-white"
                             }`}
-                            strokeWidth={isCompleted || isCurrent ? 2.5 : 2}
-                          />
+                          >
+                            <StepIcon
+                              className={`h-3.5 w-3.5 ${
+                                isCompleted ? "text-white" : isCurrent ? "text-brand" : "text-gray-300"
+                              }`}
+                              strokeWidth={isCompleted || isCurrent ? 2.5 : 2}
+                            />
+                          </div>
                         </div>
-                        {!isLast && <div className={`my-1 w-0.5 flex-1 ${isCompleted ? "bg-brand" : "bg-gray-200"}`} style={{ minHeight: 28 }} />}
+                        {!isLast && <div className={`my-1 w-0.5 flex-1 ${isCompleted ? "bg-gradient-to-b from-brand to-brand/40" : "bg-gray-200"}`} style={{ minHeight: 28 }} />}
                       </div>
                       <div className={`min-w-0 pb-5 ${isLast ? "pb-0" : ""}`}>
                         <div className={`text-sm font-semibold ${isCompleted || isCurrent ? "text-gray-900" : "text-gray-400"}`}>
@@ -373,11 +380,11 @@ export default function OrderDetailPage() {
                   <button
                     onClick={handlePayNow}
                     disabled={isPayingNow}
-                    className="flex items-center gap-2 rounded-full border-2 border-gray-900 bg-white px-4 py-2 text-sm font-semibold text-gray-900 transition hover:bg-gray-50 disabled:opacity-60"
+                    className="brand-glow flex items-center gap-2 rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-brand-dark disabled:opacity-60"
                   >
                     <CreditCard className="h-4 w-4" />
                     {isPayingNow ? "Opening..." : "Pay Now"}
-                    <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-bold text-green-700">
+                    <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-bold">
                       Save ₹{PREPAID_DISCOUNT}
                     </span>
                   </button>
@@ -544,15 +551,15 @@ export default function OrderDetailPage() {
 
         {/* Tracking info */}
         {order.trackingNumber && (
-          <div className="mb-4 rounded-xl border bg-white p-5">
-            <h2 className="mb-2 font-semibold text-gray-800">Shipment Tracking</h2>
+          <div className="mb-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">Shipment Tracking</h2>
             <p className="text-sm text-gray-600">Tracking #: <span className="font-medium text-gray-900">{order.trackingNumber}</span></p>
             {order.trackingUrl && (
               <a
                 href={order.trackingUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-2 inline-block rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
+                className="brand-glow mt-2 inline-block rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-dark"
               >
                 Track Shipment →
               </a>
@@ -561,8 +568,8 @@ export default function OrderDetailPage() {
         )}
 
         {/* Delivery address */}
-        <div className="mb-4 rounded-xl border bg-white p-5">
-          <h2 className="mb-3 font-semibold text-gray-800">Delivery Address</h2>
+        <div className="mb-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">Delivery Address</h2>
           <p className="text-sm text-gray-700">{order.address.fullName} · {order.address.phone}</p>
           <p className="text-sm text-gray-600">{order.address.completeAddress}</p>
           {order.address.latitude && order.address.longitude && (
@@ -575,14 +582,14 @@ export default function OrderDetailPage() {
         </div>
 
         {/* Items */}
-        <div className="mb-4 rounded-xl border bg-white p-5">
-          <h2 className="mb-3 font-semibold text-gray-800">Product Details</h2>
+        <div className="mb-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">Product Details</h2>
           <div className="space-y-3">
             {order.items.map((item) => (
               <div key={item.id} className="flex gap-3">
                 {item.productImage && (
-                  <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-gray-50">
-                    <Image src={item.productImage} alt={item.productName} fill sizes="56px" className="object-contain p-1" />
+                  <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-gray-100 bg-white">
+                    <Image src={item.productImage} alt={item.productName} fill sizes="64px" className="object-contain p-1.5" />
                   </div>
                 )}
                 <div className="flex flex-1 justify-between">
@@ -598,8 +605,8 @@ export default function OrderDetailPage() {
         </div>
 
         {/* Price details */}
-        <div className="rounded-xl border bg-white p-5">
-          <h2 className="mb-3 font-semibold text-gray-800">Price Details</h2>
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">Price Details</h2>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between text-gray-600"><span>Subtotal</span><span>{formatCurrency(order.subtotal)}</span></div>
             <div className="flex justify-between text-gray-600"><span>Shipping</span><span>{formatCurrency(order.shippingCharge)}</span></div>
