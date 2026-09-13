@@ -259,6 +259,15 @@ export default function CartPage() {
             })}
           </div>
 
+          {/* ── Browse More Items ── */}
+          <Link
+            href="/"
+            className="flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-brand/30 bg-white py-4 text-sm font-semibold text-brand transition hover:border-brand hover:bg-brand/5 active:scale-95"
+          >
+            <ShoppingBag size={16} />
+            Browse More Items
+          </Link>
+
           {/* ── Sidebar ── */}
           <div className="h-fit space-y-4 lg:sticky lg:top-6">
             {/* Coupon */}

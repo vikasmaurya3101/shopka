@@ -1004,12 +1004,47 @@ export default function CheckoutPage() {
                       UPI, Cards, Netbanking &amp; wallets via Razorpay
                     </p>
                   </div>
-                  {prepaidTotals.prepaidDiscount > 0 && (
-                    <span className="shrink-0 rounded bg-green-50 px-2 py-1 text-xs font-semibold text-green-700">
-                      Save {formatCurrency(prepaidTotals.prepaidDiscount)}
-                    </span>
-                  )}
+                  <span className="shrink-0 rounded bg-green-50 px-2 py-1 text-xs font-semibold text-green-700">
+                    5% OFF
+                  </span>
                 </label>
+
+                {/* Trust section — shows when Pay Online selected */}
+                {paymentMethod === "RAZORPAY" && (
+                  <div className="mt-3 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
+                    <p className="mb-2.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-gray-400">
+                      <span>🔒</span> Safe &amp; Secure Checkout
+                    </p>
+                    <div className="mb-2.5 flex items-center gap-2 rounded-xl border border-blue-100 bg-white px-3 py-2">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-600">
+                        <span className="text-[10px] font-black text-white">R∕</span>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold text-gray-800">Powered by Razorpay</p>
+                        <p className="text-[10px] text-gray-400">256-bit SSL encrypted payments</p>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-bold text-green-600">
+                        Verified
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {[
+                        { icon: "🛡️", label: "100% Secure", sub: "Your data is safe" },
+                        { icon: "💳", label: "UPI / Cards", sub: "All methods accepted" },
+                        { icon: "🔄", label: "Easy Returns", sub: "7-day hassle free" },
+                        { icon: "📦", label: "Fast Delivery", sub: "Pan India shipping" },
+                      ].map(({ icon, label, sub }) => (
+                        <div key={label} className="flex items-start gap-1.5 rounded-lg bg-white p-2">
+                          <span className="text-sm leading-none">{icon}</span>
+                          <div>
+                            <p className="text-[11px] font-bold text-gray-700">{label}</p>
+                            <p className="text-[10px] text-gray-400">{sub}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <label
                   className={`mt-2 flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm transition ${
