@@ -43,7 +43,7 @@ export default function LoginForm({ logoUrl }: { logoUrl: string }) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
-  const [whatsappConsent, setWhatsappConsent] = useState(false);
+  const [whatsappConsent, setWhatsappConsent] = useState(true);
   const [localError, setLocalError] = useState<string | null>(null);
   const [sendFailed, setSendFailed] = useState(false); // show retry button
 

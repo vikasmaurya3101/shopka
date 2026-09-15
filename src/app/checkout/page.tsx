@@ -79,7 +79,7 @@ export default function CheckoutPage() {
   // an unrelated re-render.
   const [pendingConsent, setPendingConsent] = useState<boolean | null>(null);
   const [isSavingConsent, setIsSavingConsent] = useState(false);
-  const whatsappConsent = pendingConsent ?? user?.whatsappConsent ?? false;
+  const whatsappConsent = pendingConsent ?? user?.whatsappConsent ?? true;
 
   async function handleConsentChange(next: boolean) {
     setPendingConsent(next);

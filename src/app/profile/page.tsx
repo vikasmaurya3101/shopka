@@ -52,7 +52,7 @@ export default function ProfilePage() {
   // re-render.
   const [pendingConsent, setPendingConsent] = useState<boolean | null>(null);
   const [isSavingConsent, setIsSavingConsent] = useState(false);
-  const whatsappConsent = pendingConsent ?? user?.whatsappConsent ?? false;
+  const whatsappConsent = pendingConsent ?? user?.whatsappConsent ?? true;
 
   useEffect(() => {
     if (!isAuthenticated) return;
