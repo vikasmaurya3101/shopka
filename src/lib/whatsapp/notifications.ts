@@ -1,20 +1,16 @@
 /**
  * Fast2SMS WhatsApp Order Notifications
+ * Same API pattern as WhatsAppProvider (OTP) — jo OTP bhejta hai wahi kaam karta hai.
  *
- * 3 approved templates:
- *   #1  shopka_order_confirmation  — {{1}} = name, {{2}} = order ID
- *   #2  payment_completed          — {{1}} = amount (e.g. "₹499.00")
- *   #3  delivery_confirmation_1    — {{1}} = name, {{2}} = order ID
- *
- * Required env vars (add to .env.local AND Vercel):
- *   FAST2SMS_API_KEY                      — same key used by OTP
- *   FAST2SMS_WA_PHONE_NUMBER_ID           — same phone_number_id used by OTP
- *   FAST2SMS_WA_ORDER_CONFIRM_MSG_ID      — message_id for shopka_order_confirmation  (32752)
- *   FAST2SMS_WA_PAYMENT_MSG_ID            — message_id for payment_completed           (31622)
- *   FAST2SMS_WA_DELIVERY_MSG_ID           — message_id for delivery_confirmation_1     (31858)
+ * Env vars needed (Vercel + .env.local):
+ *   FAST2SMS_API_KEY                      — same as OTP
+ *   FAST2SMS_WA_PHONE_NUMBER_ID           — same as OTP
+ *   FAST2SMS_WA_ORDER_CONFIRM_MSG_ID      — 32752
+ *   FAST2SMS_WA_PAYMENT_MSG_ID            — 31622
+ *   FAST2SMS_WA_DELIVERY_MSG_ID           — 31858
  */
 
-const BASE = "https://www.fast2sms.com/dev/whatsapp";
+const FAST2SMS_WA_URL = "https://www.fast2sms.com/dev/whatsapp";
 
 function toMobile(phone: string): string {
   const digits = phone.replace(/\D/g, "");
@@ -22,66 +18,72 @@ function toMobile(phone: string): string {
   return digits.slice(-10);
 }
 
-async function sendSimple(
-  mobile: string,
+async function sendTemplate(
+  phone: string,
   messageId: string,
   variables: string[]
 ): Promise<void> {
   const apiKey = process.env.FAST2SMS_API_KEY;
   const phoneNumberId = process.env.FAST2SMS_WA_PHONE_NUMBER_ID;
 
-  if (!apiKey || !phoneNumberId || !messageId) return;
+  if (!apiKey || !phoneNumberId || !messageId) {
+    console.warn("[WA] Missing env vars — skipping notification");
+    return;
+  }
 
   const params = new URLSearchParams({
     message_id: messageId,
     phone_number_id: phoneNumberId,
-    numbers: mobile,
+    numbers: toMobile(phone),
     variables_values: variables.join("|"),
   });
 
-  const res = await fetch(`${BASE}?${params.toString()}`, {
+  console.log(`[WA] Sending to ${toMobile(phone)}, message_id=${messageId}`);
+
+  const res = await fetch(`${FAST2SMS_WA_URL}?${params.toString()}`, {
     method: "GET",
-    headers: { authorization: apiKey, "cache-control": "no-cache" },
+    headers: {
+      authorization: apiKey,
+      "cache-control": "no-cache",
+    },
   });
 
   const json = await res.json().catch(() => null);
+  console.log("[WA] Response:", JSON.stringify(json));
 
   if (!res.ok || json?.return === false) {
     const msg = Array.isArray(json?.message)
       ? json.message[0]
       : (json?.message ?? "Unknown error");
-    throw new Error(`Fast2SMS WA notification failed (${res.status}): ${msg}`);
+    throw new Error(`Fast2SMS WA failed (${res.status}): ${msg}`);
   }
 }
 
-/** Template #1 — shopka_order_confirmation */
+/** Template #1 — shopka_order_confirmation: "Hi {{1}}, order {{2}} ready..." */
 export async function sendOrderConfirmation(
   phone: string,
   name: string,
   invoiceNumber: string
 ): Promise<void> {
-  const messageId = process.env.FAST2SMS_WA_ORDER_CONFIRM_MSG_ID;
-  if (!messageId) return;
-  await sendSimple(toMobile(phone), messageId, [name, invoiceNumber]);
+  const messageId = process.env.FAST2SMS_WA_ORDER_CONFIRM_MSG_ID ?? "";
+  await sendTemplate(phone, messageId, [name, invoiceNumber]);
 }
 
-/** Template #2 — payment_completed */
+/** Template #2 — payment_completed: "amount: {{1}}" */
 export async function sendPaymentConfirmation(
   phone: string,
   amount: string
 ): Promise<void> {
-  const messageId = process.env.FAST2SMS_WA_PAYMENT_MSG_ID;
-  if (!messageId) return;
-  await sendSimple(toMobile(phone), messageId, [amount]);
+  const messageId = process.env.FAST2SMS_WA_PAYMENT_MSG_ID ?? "";
+  await sendTemplate(phone, messageId, [amount]);
 }
 
-/** Template #3 — delivery_confirmation_1 */
+/** Template #3 — delivery_confirmation_1: "Hi {{1}}, order {{2}} delivered..." */
 export async function sendDeliveryConfirmation(
   phone: string,
   name: string,
   invoiceNumber: string
 ): Promise<void> {
-  const messageId = process.env.FAST2SMS_WA_DELIVERY_MSG_ID;
-  if (!messageId) return;
-  await sendSimple(toMobile(phone), messageId, [name, invoiceNumber]);
+  const messageId = process.env.FAST2SMS_WA_DELIVERY_MSG_ID ?? "";
+  await sendTemplate(phone, messageId, [name, invoiceNumber]);
 }
