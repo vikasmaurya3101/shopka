@@ -15,13 +15,16 @@ import {
 } from "@/lib/whatsapp/notifications";
 
 function generateInvoiceNumber() {
+  // IST = UTC+5:30 — use toLocaleString so the timestamp on the invoice
+  // matches Indian time regardless of where the Vercel edge runs.
   const now = new Date();
-  const dd = String(now.getDate()).padStart(2, "0");
-  const mm = String(now.getMonth() + 1).padStart(2, "0");
-  const yy = String(now.getFullYear()).slice(-2);
-  const HH = String(now.getHours()).padStart(2, "0");
-  const MM = String(now.getMinutes()).padStart(2, "0");
-  const SS = String(now.getSeconds()).padStart(2, "0");
+  const ist = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+  const dd = String(ist.getDate()).padStart(2, "0");
+  const mm = String(ist.getMonth() + 1).padStart(2, "0");
+  const yy = String(ist.getFullYear()).slice(-2);
+  const HH = String(ist.getHours()).padStart(2, "0");   // 24hr, IST
+  const MM = String(ist.getMinutes()).padStart(2, "0");
+  const SS = String(ist.getSeconds()).padStart(2, "0");
   return `SH-${dd}${mm}${yy}${HH}${MM}${SS}`;
 }
 
