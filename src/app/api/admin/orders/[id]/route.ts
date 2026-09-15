@@ -7,6 +7,7 @@ import {
   PaymentStatus,
   Prisma,
 } from "@prisma/client";
+import { sendDeliveryConfirmation } from "@/lib/whatsapp/notifications";
 
 async function requireAdmin() {
   const session = await getSession();
@@ -168,7 +169,7 @@ export async function PATCH(
   const updated = await prisma.$transaction(async (tx) => {
     // Cancelling or returning restocks inventory. If it was already paid, we
     // also mark the payment refunded (the actual refund still needs to be
-    // issued via your payment gateway — this just reflects it in the record).
+    // issued via your payment gateway — this just reflects it in the record)
     if (isNewlyRestockable) {
       for (const item of existing.items) {
         await tx.product.update({
@@ -231,6 +232,16 @@ export async function PATCH(
 
     return order;
   });
+
+  // WhatsApp delivery confirmation — sirf jab DELIVERED mark ho
+  if (isNewlyDelivered && updated.user.phone && updated.user.whatsappConsent) {
+    const customerName = updated.user.firstName ?? "Customer";
+    void sendDeliveryConfirmation(
+      updated.user.phone,
+      customerName,
+      updated.invoiceNumber
+    ).catch((e) => console.error("[WA] delivery confirmation failed:", e));
+  }
 
   return NextResponse.json({ success: true, data: updated });
 }

@@ -6,6 +6,7 @@ import {
   PaymentVerificationError,
   verifyRazorpayPayment,
 } from "@/lib/razorpay-verify";
+import { sendPaymentConfirmation } from "@/lib/whatsapp/notifications";
 
 /**
  * Verifies a Razorpay payment for an existing PENDING order and marks it PAID.
@@ -109,9 +110,17 @@ export async function POST(
         paymentStatus: "PAID",
         orderStatus: "CONFIRMED",
       },
-      include: { payment: true, items: true, address: true },
+      include: { payment: true, items: true, address: true, user: true },
     });
   });
+
+  // WhatsApp payment confirmation — fire-and-forget
+  if (updated.user.phone && updated.user.whatsappConsent) {
+    void sendPaymentConfirmation(
+      updated.user.phone,
+      `₹${Number(updated.totalAmount).toFixed(2)}`
+    ).catch((e) => console.error("[WA] pay-now payment confirmation failed:", e));
+  }
 
   return NextResponse.json({ success: true, data: updated });
 }

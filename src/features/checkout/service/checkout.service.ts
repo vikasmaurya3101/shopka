@@ -9,12 +9,20 @@ import {
   verifyRazorpayPayment,
   verifyRazorpaySignature,
 } from "@/lib/razorpay-verify";
+import {
+  sendOrderConfirmation,
+  sendPaymentConfirmation,
+} from "@/lib/whatsapp/notifications";
 
 function generateInvoiceNumber() {
   const now = new Date();
-  const y = now.getFullYear();
-  const rand = Math.floor(100000 + Math.random() * 900000);
-  return `SHK-${y}-${rand}`;
+  const dd = String(now.getDate()).padStart(2, "0");
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const yy = String(now.getFullYear()).slice(-2);
+  const HH = String(now.getHours()).padStart(2, "0");
+  const MM = String(now.getMinutes()).padStart(2, "0");
+  const SS = String(now.getSeconds()).padStart(2, "0");
+  return `SH-${dd}${mm}${yy}${HH}${MM}${SS}`;
 }
 
 export class CheckoutService {
@@ -190,6 +198,26 @@ export class CheckoutService {
       },
       geo,
     });
+
+    // WhatsApp notifications — fire-and-forget, never block the response
+    if (order.user.phone && order.user.whatsappConsent) {
+      const customerName = order.user.firstName ?? "Customer";
+
+      // Template #1 — order confirmation (COD + Razorpay dono ke liye)
+      void sendOrderConfirmation(
+        order.user.phone,
+        customerName,
+        order.invoiceNumber
+      ).catch((e) => console.error("[WA] order confirmation failed:", e));
+
+      // Template #2 — payment (sirf Razorpay prepaid ke liye; COD pay-now route se aayega)
+      if (order.paymentStatus === "PAID") {
+        void sendPaymentConfirmation(
+          order.user.phone,
+          `₹${Number(order.totalAmount).toFixed(2)}`
+        ).catch((e) => console.error("[WA] payment confirmation failed:", e));
+      }
+    }
 
     return order;
   }
