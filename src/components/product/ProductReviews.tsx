@@ -160,7 +160,7 @@ function WriteReviewModal({ productId, onClose, onSubmit }: { productId: string;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center" onClick={onClose}>
-      <div className="w-full max-w-lg rounded-t-2xl bg-white p-5 sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-lg rounded-t-2xl bg-white p-5 sm:rounded-2xl max-h-[90dvh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-base font-semibold text-gray-800">Write a Review</h3>
           <button onClick={onClose} className="rounded-full p-1 hover:bg-gray-100"><X size={20} /></button>
@@ -435,7 +435,6 @@ export default function ProductReviews({ productId, initialReviews, initialSumma
         )}
       </section>
 
-      <QASection productId={productId} />
       <ReturnPolicy />
 
       {showWriteReview && (
