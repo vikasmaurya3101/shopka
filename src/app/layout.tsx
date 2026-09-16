@@ -8,6 +8,7 @@ import ThemeProvider from "@/providers/ThemeProvider";
 import ToastProvider from "@/providers/ToastProvider";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
+import InstallBanner from "@/components/ui/InstallBanner";
 import { prisma } from "@/lib/prisma";
 
 const getLogoUrl = unstable_cache(
@@ -94,6 +95,7 @@ export default async function RootLayout({
               <Navbar logoUrl={logoUrl} />
               <main className="flex-1">{children}</main>
               <Footer />
+              <InstallBanner />
             </ToastProvider>
           </AuthProvider>
         </ThemeProvider>

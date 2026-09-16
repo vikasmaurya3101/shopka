@@ -1,13 +1,30 @@
 {
-  "name": "Shopka",
+  "name": "Shopka — All Trending Products",
   "short_name": "Shopka",
-  "description": "All Trending Products here",
+  "description": "India's trusted online shopping destination for best prices & fast delivery",
   "icons": [
-    { "src": "/brand/logo-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/brand/logo-512.png", "sizes": "512x512", "type": "image/png" }
+    { "src": "/brand/logo-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/brand/logo-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
   ],
-  "theme_color": "#160a2e",
+  "theme_color": "#e11d48",
   "background_color": "#160a2e",
   "display": "standalone",
-  "start_url": "/"
+  "orientation": "portrait",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "categories": ["shopping"],
+  "shortcuts": [
+    {
+      "name": "My Orders",
+      "short_name": "Orders",
+      "url": "/orders",
+      "icons": [{ "src": "/brand/logo-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "My Cart",
+      "short_name": "Cart",
+      "url": "/cart",
+      "icons": [{ "src": "/brand/logo-192.png", "sizes": "192x192" }]
+    }
+  ]
 }
