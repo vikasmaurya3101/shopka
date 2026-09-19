@@ -332,6 +332,7 @@ export default function ProductReviews({ productId, initialReviews, initialSumma
   const [filter, setFilter] = useState("all");
   const [showWriteReview, setShowWriteReview] = useState(false);
 
+  const hasReviews = summary.totalReviews > 0;
   const maxBreakdown = Math.max(1, ...BREAKDOWN_ROWS.map((r) => summary.ratingBreakdown[r.key]));
 
   async function applyFilter(f: string) {
@@ -367,73 +368,88 @@ export default function ProductReviews({ productId, initialReviews, initialSumma
 
   return (
     <>
-      <section className="mt-8 rounded-xl border border-gray-100 bg-white p-5 sm:p-8">
-        <div className="mb-5 flex items-center justify-between">
-          <h2 className="flex items-center gap-2 font-semibold text-gray-800">
-            <Star size={18} className="fill-amber-400 text-amber-400" /> Ratings &amp; Reviews
-          </h2>
-          <button onClick={() => setShowWriteReview(true)}
-            className="rounded-lg border-2 border-brand px-3 py-1.5 text-xs font-semibold text-brand hover:bg-brand-50">
-            Write Review
-          </button>
-        </div>
-
-        {summary.totalReviews === 0 ? (
-          <div className="py-8 text-center">
-            <Star size={36} className="mx-auto mb-2 text-gray-200" />
-            <p className="text-sm text-gray-400">No reviews yet — be the first!</p>
+      {/* Reviews section — only shown when at least 1 genuine review exists */}
+      {hasReviews && (
+        <section className="mt-8 rounded-xl border border-gray-100 bg-white p-5 sm:p-8">
+          <div className="mb-5 flex items-center justify-between">
+            <h2 className="flex items-center gap-2 font-semibold text-gray-800">
+              <Star size={18} className="fill-amber-400 text-amber-400" /> Ratings &amp; Reviews
+            </h2>
             <button onClick={() => setShowWriteReview(true)}
-              className="mt-3 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:opacity-90">Write a Review</button>
+              className="rounded-lg border-2 border-brand px-3 py-1.5 text-xs font-semibold text-brand hover:bg-brand-50">
+              Write Review
+            </button>
           </div>
-        ) : (
-          <>
-            <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center">
-              <div className="flex shrink-0 flex-col items-center gap-1">
-                <p className="text-5xl font-bold text-gray-900">{summary.averageRating.toFixed(1)}</p>
-                <div className="flex gap-0.5">
-                  {[1,2,3,4,5].map((n) => <Star key={n} size={14} className={summary.averageRating>=n ? "fill-amber-400 text-amber-400" : "text-gray-200"} />)}
-                </div>
-                <p className="text-xs text-gray-400">{summary.totalReviews} reviews</p>
-              </div>
-              <div className="flex-1 space-y-1.5">
-                {BREAKDOWN_ROWS.map((row) => {
-                  const count = summary.ratingBreakdown[row.key];
-                  const pct = (count / maxBreakdown) * 100;
-                  return (
-                    <button key={row.key} onClick={() => applyFilter(row.label)}
-                      className="flex w-full items-center gap-2 text-xs hover:opacity-80">
-                      <span className="w-6 shrink-0 text-right text-gray-500">{row.label}</span>
-                      <Star size={10} className="shrink-0 fill-amber-400 text-amber-400" />
-                      <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-100">
-                        <div className="h-full rounded-full bg-amber-400" style={{ width: `${pct}%` }} />
-                      </div>
-                      <span className="w-6 shrink-0 text-gray-400">{count}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
 
-            <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
-              {FILTERS.map((f) => (
-                <button key={f.value} onClick={() => applyFilter(f.value)}
-                  className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition ${filter===f.value ? "border-brand bg-brand-50 text-brand" : "border-gray-200 text-gray-500 hover:border-gray-400"}`}>
-                  {f.label}
-                </button>
-              ))}
+          <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center">
+            <div className="flex shrink-0 flex-col items-center gap-1">
+              <p className="text-5xl font-bold text-gray-900">{summary.averageRating.toFixed(1)}</p>
+              <div className="flex gap-0.5">
+                {[1,2,3,4,5].map((n) => <Star key={n} size={14} className={summary.averageRating>=n ? "fill-amber-400 text-amber-400" : "text-gray-200"} />)}
+              </div>
+              <p className="text-xs text-gray-400">{summary.totalReviews} reviews</p>
             </div>
+            <div className="flex-1 space-y-1.5">
+              {BREAKDOWN_ROWS.map((row) => {
+                const count = summary.ratingBreakdown[row.key];
+                const pct = (count / maxBreakdown) * 100;
+                return (
+                  <button key={row.key} onClick={() => applyFilter(row.label)}
+                    className="flex w-full items-center gap-2 text-xs hover:opacity-80">
+                    <span className="w-6 shrink-0 text-right text-gray-500">{row.label}</span>
+                    <Star size={10} className="shrink-0 fill-amber-400 text-amber-400" />
+                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-100">
+                      <div className="h-full rounded-full bg-amber-400" style={{ width: `${pct}%` }} />
+                    </div>
+                    <span className="w-6 shrink-0 text-gray-400">{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-            <div>{reviews.map((r) => <ReviewCard key={r.id} review={r} />)}</div>
-            {reviews.length === 0 && <p className="py-6 text-center text-sm text-gray-400">No reviews match this filter.</p>}
-            {page < totalPages && (
-              <button onClick={loadMore} disabled={isLoadingMore}
-                className="mt-4 w-full rounded-lg border py-2.5 text-sm font-semibold text-brand hover:bg-brand-50 disabled:opacity-60">
-                {isLoadingMore ? "Loading..." : "Load More Reviews"}
+          <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
+            {FILTERS.map((f) => (
+              <button key={f.value} onClick={() => applyFilter(f.value)}
+                className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition ${filter===f.value ? "border-brand bg-brand-50 text-brand" : "border-gray-200 text-gray-500 hover:border-gray-400"}`}>
+                {f.label}
               </button>
-            )}
-          </>
-        )}
-      </section>
+            ))}
+          </div>
+
+          <div>{reviews.map((r) => <ReviewCard key={r.id} review={r} />)}</div>
+          {reviews.length === 0 && <p className="py-6 text-center text-sm text-gray-400">No reviews match this filter.</p>}
+          {page < totalPages && (
+            <button onClick={loadMore} disabled={isLoadingMore}
+              className="mt-4 w-full rounded-lg border py-2.5 text-sm font-semibold text-brand hover:bg-brand-50 disabled:opacity-60">
+              {isLoadingMore ? "Loading..." : "Load More Reviews"}
+            </button>
+          )}
+        </section>
+      )}
+
+      {/* Write Review button — always visible even when no reviews yet */}
+      {!hasReviews && (
+        <section className="mt-8 rounded-xl border border-gray-100 bg-white p-5 sm:p-8">
+          <div className="flex items-center justify-between">
+            <h2 className="flex items-center gap-2 font-semibold text-gray-800">
+              <Star size={18} className="text-gray-300" /> Ratings &amp; Reviews
+            </h2>
+            <button onClick={() => setShowWriteReview(true)}
+              className="rounded-lg border-2 border-brand px-3 py-1.5 text-xs font-semibold text-brand hover:bg-brand-50">
+              Write Review
+            </button>
+          </div>
+          <div className="py-6 text-center">
+            <Star size={36} className="mx-auto mb-2 text-gray-200" />
+            <p className="text-sm text-gray-400">No reviews yet — be the first to review!</p>
+            <button onClick={() => setShowWriteReview(true)}
+              className="mt-3 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:opacity-90">
+              Write a Review
+            </button>
+          </div>
+        </section>
+      )}
 
       <ReturnPolicy />
 

@@ -17,12 +17,9 @@ export default function ProductRating({
   const numericRating = Number(rating) || 0;
   const { full, half, empty } = ratingStars(numericRating);
 
-  if (numericRating === 0 && totalReviews === 0) {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-400">
-        <Star size={11} className="text-gray-300" /> No ratings yet
-      </span>
-    );
+  // No genuine reviews yet — hide rating entirely from product card
+  if (totalReviews === 0) {
+    return null;
   }
 
   return (
